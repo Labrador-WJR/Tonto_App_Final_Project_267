@@ -80,51 +80,59 @@ class _MainScreenState extends State<MainScreen> {
       ),
 
       // Your Global Bottom Navigation Bar
+     // Replace your current bottomNavigationBar with this:
       bottomNavigationBar: Container(
-        color: darkThemeColor, 
-        child: BottomNavigationBar(
-          currentIndex: _currentIndex, 
-          onTap: (index) {
-            setState(() {
-              _currentIndex = index; 
-            });
-          },
-          type: BottomNavigationBarType.fixed, 
-          backgroundColor: darkThemeColor, 
-          selectedItemColor: Colors.black, 
-          unselectedItemColor: Colors.white, 
-          showSelectedLabels: false, 
-          showUnselectedLabels: false, 
-          items: [
-            _buildCustomNavItem('assets/icons/home.png', 0),
-            _buildCustomNavItem('assets/icons/custom.png', 1), 
-            _buildCustomNavItem('assets/icons/favorite.png', 2),
-            _buildCustomNavItem('assets/icons/profile.png', 3),
+        height: 65, // Fixed height for the whole bar
+        color: darkThemeColor,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround, // Spaces tabs evenly
+          crossAxisAlignment: CrossAxisAlignment.end, // CRITICAL: Forces tabs to touch the absolute bottom edge
+          children: [
+            _buildCustomNavItem('assets/icons/home.png', 'assets/icons/home_highlight.png', 0),
+            _buildCustomNavItem('assets/icons/custom.png', 'assets/icons/custom_highlight.png', 1),
+            _buildCustomNavItem('assets/icons/favorite.png', 'assets/icons/favorite_highlight.png', 2),
+            _buildCustomNavItem('assets/icons/profile.png', 'assets/icons/profile_highlight.png', 3),
           ],
         ),
       ),
     );
   }
 
-  // --- HELPER METHOD: Custom Bottom Nav Item ---
-  BottomNavigationBarItem _buildCustomNavItem(String imagePath, int index) {
+ // --- HELPER METHOD: Custom Bottom Nav Item ---
+  // Notice the return type is now 'Widget' instead of 'BottomNavigationBarItem'
+  Widget _buildCustomNavItem(String defaultPath, String highlightPath, int index) {
     bool isSelected = _currentIndex == index; 
     
-    return BottomNavigationBarItem(
-      icon: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8), 
+    // GestureDetector makes our custom container clickable
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _currentIndex = index; 
+        });
+      },
+      child: Container(
+        // Controls the width and height of the grey tab
+        padding: const EdgeInsets.only(left: 24, right: 24, top: 14, bottom: 14), 
         decoration: BoxDecoration(
           color: isSelected ? const Color(0xFFD9D9D9) : Colors.transparent,
-          borderRadius: BorderRadius.circular(8), 
+          // Rounds only the top corners
+          borderRadius: isSelected 
+              ? const BorderRadius.only(
+                  topLeft: Radius.circular(16),
+                  topRight: Radius.circular(16),
+                )
+              : BorderRadius.zero,
         ),
-        child: Image.asset(
-          imagePath, 
-          width: 28,
-          height: 28,
-          color: isSelected ? Colors.black : Colors.white, 
-        ),
+       child: Transform.scale(
+          scale: isSelected ? 1.6 : 1.0, // <-- Tweak this number (1.4, 1.6, etc.) if it needs to be slightly bigger/smaller
+          child: Image.asset(
+            isSelected ? highlightPath : defaultPath, 
+            width: 26,
+            height: 26,
+            color: isSelected ? null : Colors.white, 
+          ),
+       ),  
       ),
-      label: '', 
     );
   }
 }
@@ -144,8 +152,6 @@ class _HomePageState extends State<HomePage> {
   int _currentPage = 0;
   Timer? _timer;
 
-  // The paths to your specific cover images
-  // (Assuming they are PNGs, change to .jpg if your files are JPEGs)
   final List<String> _bannerImages = [
     'assets/images/cover_image1.png',
     'assets/images/cover_image2.png',
@@ -155,15 +161,22 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
-    // Start an automatic timer that changes the slide every 3 seconds
+    _startAutoSlide(); // Start the timer when the page first loads
+  }
+
+  // --- NEW: A dedicated method to handle the timer ---
+  void _startAutoSlide() {
+    // 1. Cancel any existing timer so we don't accidentally run two at once
+    _timer?.cancel(); 
+    
+    // 2. Start a fresh 3-second countdown
     _timer = Timer.periodic(const Duration(seconds: 3), (Timer timer) {
       if (_currentPage < _bannerImages.length - 1) {
         _currentPage++;
       } else {
-        _currentPage = 0; // Loop back to the first image
+        _currentPage = 0; 
       }
 
-      // Tell the PageController to animate to the next slide
       if (_pageController.hasClients) {
         _pageController.animateToPage(
           _currentPage,
@@ -176,7 +189,6 @@ class _HomePageState extends State<HomePage> {
 
   @override
   void dispose() {
-    // Always cancel timers and dispose controllers when leaving the page to save memory
     _timer?.cancel();
     _pageController.dispose();
     super.dispose();
@@ -238,20 +250,21 @@ class _HomePageState extends State<HomePage> {
             SizedBox(
               height: 200,
               width: double.infinity,
-              // PageView allows the user to swipe left and right
               child: PageView.builder(
                 controller: _pageController,
+                // Triggers whenever the page changes (either manually or automatically)
                 onPageChanged: (int page) {
                   setState(() {
-                    _currentPage = page; // Updates the dot indicators below when swiped manually
+                    _currentPage = page; 
                   });
+                  // CHANGED: Restart the timer every time they swipe, so it never interrupts them!
+                  _startAutoSlide();
                 },
                 itemCount: _bannerImages.length,
                 itemBuilder: (context, index) {
                   return Image.asset(
                     _bannerImages[index],
-                    fit: BoxFit.cover, // Ensures the image fully covers the box without stretching
-                    // Fallback just in case the image file isn't found
+                    fit: BoxFit.cover, 
                     errorBuilder: (context, error, stackTrace) {
                       return Container(
                         color: const Color(0xFFD9D9D9),
@@ -269,12 +282,10 @@ class _HomePageState extends State<HomePage> {
             // --- 2. Dynamic Carousel Dot Indicators ---
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
-              // Create exactly as many dots as there are images
               children: List.generate(_bannerImages.length, (index) {
                 return AnimatedContainer(
                   duration: const Duration(milliseconds: 300),
                   margin: const EdgeInsets.symmetric(horizontal: 4),
-                  // Make the active dot slightly wider for a nice UI effect
                   width: _currentPage == index ? 16 : 8,
                   height: 8,
                   decoration: BoxDecoration(
