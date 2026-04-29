@@ -1,5 +1,6 @@
 // Imports the core Flutter Material Design library
 import 'package:flutter/material.dart';
+import 'dart:async'; // <--- ADD THIS LINE FOR THE TIMER
 
 // The main entry point of the Flutter application. 
 void main() {
@@ -123,54 +124,101 @@ class _MainScreenState extends State<MainScreen> {
 }
 
 // --- HOME PAGE TAB ---
-class HomePage extends StatelessWidget {
+// --- HOME PAGE TAB ---
+class HomePage extends StatefulWidget {
   const HomePage({super.key});
+
+  @override
+  State<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> {
+  // PageController manages the swiping and animation of the PageView
+  final PageController _pageController = PageController(initialPage: 0);
+  int _currentPage = 0;
+  Timer? _timer;
+
+  // The paths to your specific cover images
+  // (Assuming they are PNGs, change to .jpg if your files are JPEGs)
+  final List<String> _bannerImages = [
+    'assets/images/cover_image1.png',
+    'assets/images/cover_image2.png',
+    'assets/images/cover_image3.png',
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    // Start an automatic timer that changes the slide every 3 seconds
+    _timer = Timer.periodic(const Duration(seconds: 3), (Timer timer) {
+      if (_currentPage < _bannerImages.length - 1) {
+        _currentPage++;
+      } else {
+        _currentPage = 0; // Loop back to the first image
+      }
+
+      // Tell the PageController to animate to the next slide
+      if (_pageController.hasClients) {
+        _pageController.animateToPage(
+          _currentPage,
+          duration: const Duration(milliseconds: 350),
+          curve: Curves.easeIn,
+        );
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    // Always cancel timers and dispose controllers when leaving the page to save memory
+    _timer?.cancel();
+    _pageController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     const darkThemeColor = Color(0xFF2D3238);
 
-    // Wrapped in a Scaffold so it can have its own top AppBar
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: darkThemeColor, 
-        elevation: 0, 
-        titleSpacing: 0, 
+        backgroundColor: darkThemeColor,
+        elevation: 0,
+        titleSpacing: 0,
         leading: Padding(
           padding: const EdgeInsets.all(8.0),
           child: Image.asset(
-            'assets/icons/logo.png', 
-            fit: BoxFit.contain, 
+            'assets/icons/logo.png',
+            fit: BoxFit.contain,
           ),
         ),
         title: Container(
-          height: 36, 
+          height: 36,
           decoration: BoxDecoration(
-            color: Colors.white, 
-            borderRadius: BorderRadius.circular(8), 
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(8),
           ),
           child: const TextField(
             decoration: InputDecoration(
-              hintText: 'Search...', 
-              prefixIcon: Icon(Icons.search, color: Colors.black54), 
-              border: InputBorder.none, 
-              contentPadding: EdgeInsets.symmetric(vertical: 8), 
+              hintText: 'Search...',
+              prefixIcon: Icon(Icons.search, color: Colors.black54),
+              border: InputBorder.none,
+              contentPadding: EdgeInsets.symmetric(vertical: 8),
             ),
           ),
         ),
         actions: [
           IconButton(
             icon: Image.asset(
-              'assets/icons/cart.png', 
+              'assets/icons/cart.png',
               width: 24,
               height: 24,
-              color: Colors.white, 
+              color: Colors.white,
             ),
             onPressed: () {
-              // This pushes the CartPage INSIDE the nested navigator, keeping the bottom bar visible
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (context) => const CartPage()), 
+                MaterialPageRoute(builder: (context) => const CartPage()),
               );
             },
           ),
@@ -179,48 +227,78 @@ class HomePage extends StatelessWidget {
       body: SingleChildScrollView(
         child: Column(
           children: [
-            Container(
-              height: 200, 
-              width: double.infinity, 
-              color: const Color(0xFFD9D9D9), 
-              child: const Center(
-                child: Icon(Icons.image, size: 80, color: Colors.black), 
+            
+            // --- 1. Top Banner Section (Slideshow) ---
+            SizedBox(
+              height: 200,
+              width: double.infinity,
+              // PageView allows the user to swipe left and right
+              child: PageView.builder(
+                controller: _pageController,
+                onPageChanged: (int page) {
+                  setState(() {
+                    _currentPage = page; // Updates the dot indicators below when swiped manually
+                  });
+                },
+                itemCount: _bannerImages.length,
+                itemBuilder: (context, index) {
+                  return Image.asset(
+                    _bannerImages[index],
+                    fit: BoxFit.cover, // Ensures the image fully covers the box without stretching
+                    // Fallback just in case the image file isn't found
+                    errorBuilder: (context, error, stackTrace) {
+                      return Container(
+                        color: const Color(0xFFD9D9D9),
+                        child: const Center(
+                          child: Icon(Icons.image_not_supported, size: 50, color: Colors.grey),
+                        ),
+                      );
+                    },
+                  );
+                },
               ),
             ),
-            const SizedBox(height: 8), 
+            const SizedBox(height: 8),
+
+            // --- 2. Dynamic Carousel Dot Indicators ---
             Row(
-              mainAxisAlignment: MainAxisAlignment.center, 
-              children: List.generate(4, (index) {
-                return Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 4), 
-                  width: 8,
+              mainAxisAlignment: MainAxisAlignment.center,
+              // Create exactly as many dots as there are images
+              children: List.generate(_bannerImages.length, (index) {
+                return AnimatedContainer(
+                  duration: const Duration(milliseconds: 300),
+                  margin: const EdgeInsets.symmetric(horizontal: 4),
+                  // Make the active dot slightly wider for a nice UI effect
+                  width: _currentPage == index ? 16 : 8,
                   height: 8,
                   decoration: BoxDecoration(
-                    color: index == 0 ? Colors.black : Colors.grey,
-                    shape: BoxShape.circle, 
+                    color: _currentPage == index ? Colors.black : Colors.grey,
+                    borderRadius: BorderRadius.circular(4),
                   ),
                 );
               }),
             ),
-            const SizedBox(height: 16), 
+            const SizedBox(height: 16),
+            
+            // --- 3. Product Grid Section ---
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0), 
+              padding: const EdgeInsets.symmetric(horizontal: 16.0),
               child: GridView.builder(
                 physics: const NeverScrollableScrollPhysics(),
-                shrinkWrap: true, 
+                shrinkWrap: true,
                 gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2, 
-                  crossAxisSpacing: 16, 
-                  mainAxisSpacing: 16, 
-                  childAspectRatio: 0.75, 
+                  crossAxisCount: 2,
+                  crossAxisSpacing: 16,
+                  mainAxisSpacing: 16,
+                  childAspectRatio: 0.75,
                 ),
-                itemCount: 6, 
+                itemCount: 6,
                 itemBuilder: (context, index) {
-                  return const ProductCard(); 
+                  return const ProductCard();
                 },
               ),
             ),
-            const SizedBox(height: 20), 
+            const SizedBox(height: 20),
           ],
         ),
       ),
