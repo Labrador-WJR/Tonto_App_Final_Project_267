@@ -107,13 +107,13 @@ class _MainScreenState extends State<MainScreen> {
           Navigator(
             key: _navigatorKeys[2], 
             onGenerateRoute: (_) => MaterialPageRoute(
-              builder: (context) => const PlaceholderPage(title: 'Favorites'),
+              builder: (context) => const FavoritesPage(),
             ),
           ),
           Navigator(
             key: _navigatorKeys[3], 
             onGenerateRoute: (_) => MaterialPageRoute(
-              builder: (context) => const PlaceholderPage(title: 'Profile'),
+              builder: (context) => const ProfilePage(),
             ),
           ),
         ],
@@ -1626,58 +1626,16 @@ class _SearchPageState extends State<SearchPage> {
 
   // Data for the filters
   final List<String> _allFilters = ['Men', 'Women', 'Child', 'Sports', 'Festival', 'Casual', 'Formal'];
-  final List<String> _activeFilters = []; // Starts empty
+  final List<String> _activeFilters = []; 
 
-  // Function to show the filter popup dialog
-  void _showFilterDialog() {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        // StatefulBuilder is required here so the dialog can update its own checkboxes live
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            return AlertDialog(
-              backgroundColor: const Color(0xFF383E46),
-              title: const Text('Filter Categories', style: TextStyle(color: Colors.white)),
-              content: Wrap(
-                spacing: 8.0,
-                runSpacing: 8.0,
-                children: _allFilters.map((filter) {
-                  final isSelected = _activeFilters.contains(filter);
-                  return FilterChip(
-                    label: Text(
-                      filter, 
-                      style: TextStyle(color: isSelected ? Colors.black : Colors.white)
-                    ),
-                    selected: isSelected,
-                    selectedColor: const Color(0xFFD5D5D5),
-                    backgroundColor: const Color(0xFF2D3238),
-                    checkmarkColor: Colors.black,
-                    onSelected: (bool selected) {
-                      setDialogState(() {
-                        if (selected) {
-                          _activeFilters.add(filter);
-                        } else {
-                          _activeFilters.remove(filter);
-                        }
-                      });
-                      // Update the main page behind the dialog too
-                      setState(() {});
-                    },
-                  );
-                }).toList(),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('Done', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                ),
-              ],
-            );
-          }
-        );
-      }
-    );
+  // NEW: State variable to track if the dropdown is open
+  bool _isDropdownOpen = false;
+
+  // NEW: Function to toggle the dropdown instead of showing a popup
+  void _toggleDropdown() {
+    setState(() {
+      _isDropdownOpen = !_isDropdownOpen;
+    });
   }
 
   @override
@@ -1700,11 +1658,10 @@ class _SearchPageState extends State<SearchPage> {
       appBar: AppBar(
         backgroundColor: darkThemeColor,
         elevation: 0,
-        automaticallyImplyLeading: false, // Hide default back button to match your image
+        automaticallyImplyLeading: false, 
         titleSpacing: 0,
         title: Row(
           children: [
-            // Using the logo as the Back Button
             GestureDetector(
               onTap: () => Navigator.pop(context),
               child: Padding(
@@ -1716,13 +1673,12 @@ class _SearchPageState extends State<SearchPage> {
                   fit: BoxFit.contain,
                   errorBuilder: (context, error, stackTrace) => const Padding(
                     padding: EdgeInsets.only(left: 8.0),
-                    child: Icon(Icons.arrow_back, color: Colors.white), // Fallback if image fails
+                    child: Icon(Icons.arrow_back, color: Colors.white), 
                   ),
                 ),
               ),
             ),
             const SizedBox(width: 8),
-            // The Active Search Bar
             Expanded(
               child: Container(
                 height: 36,
@@ -1732,17 +1688,16 @@ class _SearchPageState extends State<SearchPage> {
                 ),
                 child: TextField(
                   controller: _searchController,
-                  autofocus: true, // Magically pops the keyboard open instantly
+                  autofocus: true, 
                   decoration: const InputDecoration(
                     hintText: 'Search Product',
                     border: InputBorder.none,
-                    contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 10), // Adjusted for vertical centering
+                    contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 10), 
                   ),
                 ),
               ),
             ),
             const SizedBox(width: 8),
-            // Cart Button
             IconButton(
               icon: Image.asset(
                 'assets/icons/cart.png',
@@ -1760,14 +1715,15 @@ class _SearchPageState extends State<SearchPage> {
       ),
       body: Column(
         children: [
-          // Filter Bar Row (Updated with pinned button)
+          // 1. Filter Bar Row (The Anchor)
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
             child: Row(
               children: [
-                // 1. PINNED: Main Filter Button (Now outside the scroll view!)
+                // PINNED: Main Filter Button
                 GestureDetector(
-                  onTap: _showFilterDialog,
+                  // CHANGED: Now toggles the dropdown instead of opening a dialog
+                  onTap: _toggleDropdown, 
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
                     decoration: cardDecoration,
@@ -1782,7 +1738,7 @@ class _SearchPageState extends State<SearchPage> {
                 ),
                 const SizedBox(width: 12),
                 
-                // 2. SCROLLABLE: Active Filter Chips
+                // SCROLLABLE: Active Filter Chips
                 Expanded(
                   child: SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
@@ -1815,22 +1771,112 @@ class _SearchPageState extends State<SearchPage> {
             ),
           ),
 
-          // Search History Suggestions
+          // 2. The STACK (Holds the list AND the floating dropdown)
           Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0),
-              itemCount: _searchHistory.length,
-              itemBuilder: (context, index) {
-                return Container(
-                  margin: const EdgeInsets.only(bottom: 12.0),
-                  padding: const EdgeInsets.all(16.0),
-                  decoration: cardDecoration,
-                  child: Text(
-                    _searchHistory[index],
-                    style: const TextStyle(color: Color(0xFF2D3238), fontSize: 16),
+            child: Stack(
+              children: [
+                // BASE LAYER: Search History Suggestions
+                ListView.builder(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                  itemCount: _searchHistory.length,
+                  itemBuilder: (context, index) {
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 12.0),
+                      padding: const EdgeInsets.all(16.0),
+                      decoration: cardDecoration,
+                      child: Text(
+                        _searchHistory[index],
+                        style: const TextStyle(color: Color(0xFF2D3238), fontSize: 16),
+                      ),
+                    );
+                  },
+                ),
+
+                // INTERACTION LAYER: Invisible background to close dropdown when tapping outside
+                if (_isDropdownOpen)
+                  GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        _isDropdownOpen = false; // Close if they tap anywhere else
+                      });
+                    },
+                    child: Container(
+                      color: Colors.transparent, // Invisible but catches taps!
+                      width: double.infinity,
+                      height: double.infinity,
+                    ),
                   ),
-                );
-              },
+
+                // TOP LAYER: The Floating Dropdown Menu
+                if (_isDropdownOpen)
+                  Positioned(
+                    top: 0, // Sticks right below the filter bar
+                    left: 16, // Aligns with the filter button
+                    width: 250, // Fixed width for the menu
+                    child: Container(
+                      padding: const EdgeInsets.all(16.0),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF383E46), // Dark background
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.3),
+                            blurRadius: 8,
+                            offset: const Offset(0, 4), // Drops shadow downwards
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Text(
+                            'Select Categories', 
+                            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)
+                          ),
+                          const SizedBox(height: 16),
+                          // Wraps the filter chips so they flow onto the next line
+                          Wrap(
+                            spacing: 8.0,
+                            runSpacing: 12.0,
+                            children: _allFilters.map((filter) {
+                              final isSelected = _activeFilters.contains(filter);
+                              return GestureDetector(
+                                onTap: () {
+                                  setState(() {
+                                    if (isSelected) {
+                                      _activeFilters.remove(filter);
+                                    } else {
+                                      _activeFilters.add(filter);
+                                    }
+                                  });
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                  decoration: BoxDecoration(
+                                    // Light grey if selected, dark grey if unselected
+                                    color: isSelected ? const Color(0xFFD5D5D5) : const Color(0xFF2D3238),
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(
+                                      color: isSelected ? Colors.transparent : Colors.transparent,
+                                    ),
+                                  ),
+                                  child: Text(
+                                    filter,
+                                    style: TextStyle(
+                                      color: isSelected ? Colors.black : Colors.white,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ),
+                              );
+                            }).toList(),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+              ],
             ),
           ),
         ],
@@ -1838,7 +1884,6 @@ class _SearchPageState extends State<SearchPage> {
     );
   }
 }
-
 // ============================================================================
 // 10. PRODUCT DETAIL PAGE SECTION
 // ============================================================================
@@ -2259,6 +2304,573 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                   elevation: 4,
                 ),
                 child: const Text('Buy Now', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// --- 11. PROFILE PAGE SECTION ---
+
+// Data model for an order item, reusing the CartItem structure but adding a status
+class OrderItem {
+  final int id;
+  final String name;
+  final String imagePath;
+  final double price;
+  final int quantity;
+  final String status; // Special for the profile page view
+
+  OrderItem({
+    required this.id,
+    required this.name,
+    required this.imagePath,
+    required this.price,
+    required this.quantity,
+    this.status = "Status: Lorem, Ipsum, Dolar", // Default as per image_20.png/image_21.png
+  });
+}
+
+// Global list of mock orders, categorized for the different tabs
+List<OrderItem> mockPendingOrders = [
+  OrderItem(id: 301, name: "Pending Hoodie v1", imagePath: 'placeholder', price: 200.00, quantity: 1),
+  OrderItem(id: 302, name: "Pending Tee (Red)", imagePath: 'placeholder', price: 200.00, quantity: 1),
+];
+
+List<OrderItem> mockShippingOrders = [
+  OrderItem(id: 401, name: "Shipping Design 03", imagePath: 'placeholder', price: 200.00, quantity: 1),
+];
+
+List<OrderItem> mockDeliveredOrders = [
+  OrderItem(id: 501, name: "Delivered Cap (Blue)", imagePath: 'placeholder', price: 200.00, quantity: 1),
+];
+
+List<OrderItem> mockCompletedOrders = [
+  OrderItem(id: 601, name: "Completed Watch (Gold)", imagePath: 'placeholder', price: 200.00, quantity: 1),
+  OrderItem(id: 602, name: "Completed Shoes (White)", imagePath: 'placeholder', price: 200.00, quantity: 1),
+  OrderItem(id: 603, name: "Completed Design 04", imagePath: 'placeholder', price: 200.00, quantity: 1),
+];
+
+// Profile Page Widget with State to handle tab switching
+class ProfilePage extends StatefulWidget {
+  const ProfilePage({super.key});
+
+  @override
+  State<ProfilePage> createState() => _ProfilePageState();
+}
+
+class _ProfilePageState extends State<ProfilePage> {
+  // State to track the currently selected tab index
+  int _selectedTabIndex = 0;
+
+  // The tabs as a simple list of strings
+  final List<String> _tabs = ['Pending', 'Shipping', 'Deliver', 'Completed'];
+
+  // Reuse card styling for grey containers
+  final cardDecoration = BoxDecoration(
+    color: const Color(0xFFD5D5D5),
+    borderRadius: BorderRadius.circular(12),
+    boxShadow: [
+      BoxShadow(
+        color: Colors.black.withOpacity(0.2),
+        spreadRadius: 1,
+        blurRadius: 4,
+        offset: const Offset(0, 2),
+      ),
+    ],
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    const darkThemeColor = Color(0xFF2D3238);
+
+    // Dynamic data loading based on selected tab
+    List<OrderItem> currentOrders = [];
+    switch (_selectedTabIndex) {
+      case 0:
+        currentOrders = mockPendingOrders;
+        break;
+      case 1:
+        currentOrders = mockShippingOrders;
+        break;
+      case 2:
+        currentOrders = mockDeliveredOrders;
+        break;
+      case 3:
+        currentOrders = mockCompletedOrders;
+        break;
+    }
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Profile'),
+        backgroundColor: darkThemeColor,
+        foregroundColor: Colors.white,
+        leading: Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: Image.asset(
+            'assets/icons/logo.png', // The Tonto logo from image_18.png
+            fit: BoxFit.contain,
+          ),
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.settings, color: Colors.white), // Settings gear from image_18.png
+            onPressed: () {
+              // Placeholder settings action
+              print('Settings clicked');
+            },
+          ),
+        ],
+      ),
+      body: SingleChildScrollView(
+        child: Column(
+          children: [
+            const SizedBox(height: 16),
+            
+            // 1. User Header Section
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Row(
+                children: [
+                  // Circular Avatar Placeholder from image_18.png
+                  const CircleAvatar(
+                    radius: 50,
+                    backgroundColor: Color(0xFFD5D5D5),
+                    child: Icon(Icons.person, size: 60, color: darkThemeColor),
+                  ),
+                  const SizedBox(width: 16),
+                  
+                  // Username from image_18.png
+                  const Expanded(
+                    child: Text(
+                      'Username',
+                      style: TextStyle(color: darkThemeColor, fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                  
+                  // Percentage Icon (discount/coupon) from image_18.png
+                  IconButton(
+                    icon: const Icon(Icons.percent, color: darkThemeColor, size: 30),
+                    onPressed: () {
+                      // Placeholder coupon action
+                      print('Coupons clicked');
+                    },
+                  ),
+                ],
+              ),
+            ),
+            
+            // 2. Tab Selection Section (Pending, Shipping, etc.)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+              child: Column(
+                children: [
+                  // Horizontal tab buttons
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: List.generate(_tabs.length, (index) {
+                      final tabName = _tabs[index];
+                      final isSelected = _selectedTabIndex == index;
+                      
+                      return GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            _selectedTabIndex = index; // Rebuild with new data
+                          });
+                        },
+                        child: Column(
+                          children: [
+                            Text(
+                              tabName,
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: darkThemeColor,
+                                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            // Line indicator below the selected tab
+                            Container(
+                              height: 2,
+                              width: 60, // Width can be dynamic or static
+                              color: isSelected ? darkThemeColor : Colors.transparent,
+                            ),
+                          ],
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 8),
+                  // Divider line as per image_18.png
+                  const Divider(color: darkThemeColor, thickness: 1),
+                ],
+              ),
+            ),
+            
+            // 3. Conditional Content Section based on Tab Type
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              child: currentOrders.isEmpty
+                  ? const Center(
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(vertical: 40.0),
+                        child: Text(
+                          'No orders in this state.',
+                          style: TextStyle(color: darkThemeColor, fontSize: 16),
+                        ),
+                      ),
+                    )
+                  : ListView.builder(
+                      shrinkWrap: true, // List is inside a ScrollView
+                      physics: const NeverScrollableScrollPhysics(), // ScrollView handles scrolling
+                      itemCount: currentOrders.length,
+                      itemBuilder: (context, index) {
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 12.0),
+                          child: ProfileItemCard(
+                            orderItem: currentOrders[index],
+                            isCompletedTab: _selectedTabIndex == 3, // True if 'Completed' tab is selected
+                            cardDecoration: cardDecoration, // Pass the shared decoration
+                          ),
+                        );
+                      },
+                    ),
+            ),
+            const SizedBox(height: 20),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// Reusable card component for an individual order item
+class ProfileItemCard extends StatelessWidget {
+  final OrderItem orderItem;
+  final bool isCompletedTab;
+  final BoxDecoration cardDecoration;
+
+  const ProfileItemCard({
+    super.key,
+    required this.orderItem,
+    required this.isCompletedTab,
+    required this.cardDecoration,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    const darkThemeColor = Color(0xFF2D3238);
+
+    return Container(
+      padding: const EdgeInsets.all(12.0),
+      decoration: cardDecoration, // Shared grey container decoration
+      child: Row(
+        children: [
+          // Grey Image Placeholder from product designs
+          Container(
+            width: 70,
+            height: 70,
+            decoration: BoxDecoration(
+              color: const Color(0xFF383E46), // Darker grey for image container
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Center(
+              child: Icon(Icons.image, size: 36, color: Colors.white),
+            ),
+          ),
+          const SizedBox(width: 12),
+          
+          // Order information and conditional action
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Product Name from previous design
+                Text(
+                  orderItem.name,
+                  style: const TextStyle(color: darkThemeColor, fontSize: 14),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 16), // Spacing below name
+                
+                // --- Conditional Render based on Tab Type (referencing input images) ---
+                if (isCompletedTab) ...[
+                  // 1. Child for 'Completed' Tab: Dark "Rate" Button from image_22.png
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end, // Align to right like image_22.png
+                    children: [
+                      Container(
+                        decoration: BoxDecoration(
+                          color: darkThemeColor, // Dark button color
+                          borderRadius: BorderRadius.circular(8),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.2),
+                              spreadRadius: 1,
+                              blurRadius: 4,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: TextButton(
+                          onPressed: () {
+                            // Placeholder rating action
+                            print('Rate button clicked for order ${orderItem.id}');
+                          },
+                          child: const Text(
+                            'Rate',
+                            style: TextStyle(
+                              color: Colors.white, // White text for rate button
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ] else ...[
+                  // 2. Child for other Tabs: "Status: ..." Text from image_20.png and image_21.png
+                  Text(
+                    orderItem.status, // Uses status string from OrderItem data model
+                    style: TextStyle(
+                      color: darkThemeColor.withOpacity(0.7), // Faded status text
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ============================================================================
+// 12. FAVORITES PAGE SECTION
+// ============================================================================
+
+class FavoritesPage extends StatefulWidget {
+  const FavoritesPage({super.key});
+
+  @override
+  State<FavoritesPage> createState() => _FavoritesPageState();
+}
+
+class _FavoritesPageState extends State<FavoritesPage> {
+  
+  // Mock list of favorite products. Reuse the structure from HomePage mock.
+  final List<String> _favoriteProductNames = [
+    'Summer Hoodie v1',
+    'Classic Tee (Red)',
+    'Graphic Design 03',
+    'Cap (Blue)',
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    const darkThemeColor = Color(0xFF2D3238);
+
+    return Scaffold(
+      backgroundColor: const Color(0xFFF5F5F5),
+      // Mimic Home Page AppBar
+      appBar: AppBar(
+        backgroundColor: darkThemeColor,
+        elevation: 0,
+        titleSpacing: 0,
+        leading: Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: Image.asset(
+            'assets/icons/logo.png', // Logo from Home Page design
+            fit: BoxFit.contain,
+            errorBuilder: (context, error, stackTrace) => const Icon(Icons.pets, color: Colors.white),
+          ),
+        ),
+        title: Container(
+          height: 36,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: const TextField(
+            decoration: InputDecoration(
+              hintText: 'Search Favorites...',
+              prefixIcon: Icon(Icons.search, color: Colors.black54),
+              border: InputBorder.none,
+              contentPadding: EdgeInsets.symmetric(vertical: 8),
+            ),
+          ),
+        ),
+        actions: [
+          IconButton(
+            icon: Image.asset(
+              'assets/icons/cart.png', // Cart Icon from Home Page
+              width: 24,
+              height: 24,
+              color: Colors.white,
+              errorBuilder: (context, error, stackTrace) => const Icon(Icons.shopping_cart, color: Colors.white),
+            ),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const CartPage()),
+              );
+            },
+          ),
+        ],
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 16.0),
+        child: Column(
+          children: [
+            // Product Grid Section mimicking Home Page
+            GridView.builder(
+              physics: const NeverScrollableScrollPhysics(), // ScrollView handles scrolling
+              shrinkWrap: true, // Crucial for embedding inside SingleChildScrollView
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                crossAxisSpacing: 16,
+                mainAxisSpacing: 16,
+                childAspectRatio: 0.75, // Aspect ratio from original design
+              ),
+              itemCount: _favoriteProductNames.length,
+              itemBuilder: (context, index) {
+                // New custom card for Favorites Page
+                return FavoriteProductCard(
+                  productName: _favoriteProductNames[index],
+                );
+              },
+            ),
+            const SizedBox(height: 20),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// Reusable card for the Favorites grid
+// Reusable card for the Favorites grid
+// Reusable card for the Favorites grid
+class FavoriteProductCard extends StatelessWidget {
+  final String productName;
+  
+  const FavoriteProductCard({super.key, required this.productName});
+
+  @override
+  Widget build(BuildContext context) {
+    // 1. ADDED: Wrap the entire container in a GestureDetector
+    return GestureDetector(
+      onTap: () {
+        // 2. ADDED: Navigate to ProductDetailPage when clicked
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => ProductDetailPage(
+              name: productName, // Pass the actual name of the clicked favorite
+              price: 200.00,     // Mock price for the wireframe
+            ),
+          ),
+        );
+      },
+      child: Container(
+        decoration: BoxDecoration(
+          color: const Color(0xFF383E46), 
+          borderRadius: BorderRadius.circular(8),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.15),
+              spreadRadius: 1,
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Upper Image Section
+            Expanded(
+              child: Stack( 
+                children: [
+                  Container(
+                    margin: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFD9D9D9), 
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: const Center(
+                      child: Icon(Icons.image, size: 50, color: Colors.black),
+                    ),
+                  ),
+                  Positioned(
+                    bottom: 12, 
+                    right: 12,  
+                    child: Image.asset(
+                      'assets/icons/favorite_badge.png', 
+                      width: 28, 
+                      height: 28,
+                      fit: BoxFit.contain,
+                      errorBuilder: (context, error, stackTrace) => Container(
+                        width: 28, height: 28,
+                        decoration: const BoxDecoration(color: Colors.white70, shape: BoxShape.circle),
+                        child: const Icon(Icons.favorite, size: 18, color: Colors.black),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            
+            // Lower Details Section
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    productName,
+                    style: const TextStyle(color: Colors.white, fontSize: 12),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 2),
+                  const Text(
+                    'Product Sold',
+                    style: TextStyle(color: Colors.grey, fontSize: 8),
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: List.generate(5, (index) {
+                          return Icon(
+                            index < 3 ? Icons.star : Icons.star_border,
+                            color: Colors.white,
+                            size: 10,
+                          );
+                        }),
+                      ),
+                      const Text(
+                        'P 200.00',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                ],
               ),
             ),
           ],
