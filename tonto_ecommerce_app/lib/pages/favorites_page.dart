@@ -1,10 +1,7 @@
 import 'package:flutter/material.dart';
 import 'cart_page.dart';
 import 'product_detail_page.dart';
-
-// ============================================================================
-// 12. FAVORITES PAGE SECTION
-// ============================================================================
+import '../models/data_models.dart';
 
 class FavoritesPage extends StatefulWidget {
   const FavoritesPage({super.key});
@@ -14,13 +11,32 @@ class FavoritesPage extends StatefulWidget {
 }
 
 class _FavoritesPageState extends State<FavoritesPage> {
-  
-  // Mock list of favorite products. Reuse the structure from HomePage mock.
-  final List<String> _favoriteProductNames = [
-    'Summer Hoodie v1',
-    'Classic Tee (Red)',
-    'Graphic Design 03',
-    'Cap (Blue)',
+  // Mock list of favorite products – in the future, you can fetch real products
+  final List<Product> _favoriteProducts = [
+    Product(
+      id: 'mock1',
+      name: 'Summer Hoodie v1',
+      price: 200.00,
+      category: 'hoodie',
+    ),
+    Product(
+      id: 'mock2',
+      name: 'Classic Tee (Red)',
+      price: 200.00,
+      category: 'tee',
+    ),
+    Product(
+      id: 'mock3',
+      name: 'Graphic Design 03',
+      price: 200.00,
+      category: 'hoodie',
+    ),
+    Product(
+      id: 'mock4',
+      name: 'Cap (Blue)',
+      price: 200.00,
+      category: 'cap',
+    ),
   ];
 
   @override
@@ -29,7 +45,6 @@ class _FavoritesPageState extends State<FavoritesPage> {
 
     return Scaffold(
       backgroundColor: const Color(0xFFF5F5F5),
-      // Mimic Home Page AppBar
       appBar: AppBar(
         backgroundColor: darkThemeColor,
         elevation: 0,
@@ -37,9 +52,10 @@ class _FavoritesPageState extends State<FavoritesPage> {
         leading: Padding(
           padding: const EdgeInsets.all(8.0),
           child: Image.asset(
-            'assets/icons/logo.png', // Logo from Home Page design
+            'assets/icons/logo.png',
             fit: BoxFit.contain,
-            errorBuilder: (context, error, stackTrace) => const Icon(Icons.pets, color: Colors.white),
+            errorBuilder: (context, error, stackTrace) =>
+                const Icon(Icons.pets, color: Colors.white),
           ),
         ),
         title: Container(
@@ -60,11 +76,12 @@ class _FavoritesPageState extends State<FavoritesPage> {
         actions: [
           IconButton(
             icon: Image.asset(
-              'assets/icons/cart.png', // Cart Icon from Home Page
+              'assets/icons/cart.png',
               width: 24,
               height: 24,
               color: Colors.white,
-              errorBuilder: (context, error, stackTrace) => const Icon(Icons.shopping_cart, color: Colors.white),
+              errorBuilder: (context, error, stackTrace) =>
+                  const Icon(Icons.shopping_cart, color: Colors.white),
             ),
             onPressed: () {
               Navigator.push(
@@ -79,21 +96,19 @@ class _FavoritesPageState extends State<FavoritesPage> {
         padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 16.0),
         child: Column(
           children: [
-            // Product Grid Section mimicking Home Page
             GridView.builder(
-              physics: const NeverScrollableScrollPhysics(), // ScrollView handles scrolling
-              shrinkWrap: true, // Crucial for embedding inside SingleChildScrollView
+              physics: const NeverScrollableScrollPhysics(),
+              shrinkWrap: true,
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: 2,
                 crossAxisSpacing: 16,
                 mainAxisSpacing: 16,
-                childAspectRatio: 0.75, // Aspect ratio from original design
+                childAspectRatio: 0.75,
               ),
-              itemCount: _favoriteProductNames.length,
+              itemCount: _favoriteProducts.length,
               itemBuilder: (context, index) {
-                // New custom card for Favorites Page
                 return FavoriteProductCard(
-                  productName: _favoriteProductNames[index],
+                  product: _favoriteProducts[index],
                 );
               },
             ),
@@ -105,33 +120,24 @@ class _FavoritesPageState extends State<FavoritesPage> {
   }
 }
 
-// Reusable card for the Favorites grid
-// Reusable card for the Favorites grid
-// Reusable card for the Favorites grid
 class FavoriteProductCard extends StatelessWidget {
-  final String productName;
-  
-  const FavoriteProductCard({super.key, required this.productName});
+  final Product product;
+  const FavoriteProductCard({super.key, required this.product});
 
   @override
   Widget build(BuildContext context) {
-    // 1. ADDED: Wrap the entire container in a GestureDetector
     return GestureDetector(
       onTap: () {
-        // 2. ADDED: Navigate to ProductDetailPage when clicked
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => ProductDetailPage(
-              name: productName, // Pass the actual name of the clicked favorite
-              price: 200.00,     // Mock price for the wireframe
-            ),
+            builder: (context) => ProductDetailPage(product: product),
           ),
         );
       },
       child: Container(
         decoration: BoxDecoration(
-          color: const Color(0xFF383E46), 
+          color: const Color(0xFF383E46),
           borderRadius: BorderRadius.circular(8),
           boxShadow: [
             BoxShadow(
@@ -145,47 +151,61 @@ class FavoriteProductCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Upper Image Section
             Expanded(
-              child: Stack( 
+              child: Stack(
                 children: [
                   Container(
                     margin: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFD9D9D9), 
+                      color: const Color(0xFFD9D9D9),
                       borderRadius: BorderRadius.circular(4),
                     ),
-                    child: const Center(
-                      child: Icon(Icons.image, size: 50, color: Colors.black),
-                    ),
+                    child: product.imageUrl.isNotEmpty
+                        ? ClipRRect(
+                            borderRadius: BorderRadius.circular(4),
+                            child: Image.network(
+                              product.imageUrl,
+                              fit: BoxFit.cover,
+                              width: double.infinity,
+                              errorBuilder: (context, error, stackTrace) =>
+                                  const Icon(Icons.image,
+                                      size: 50, color: Colors.black),
+                            ),
+                          )
+                        : const Center(
+                            child: Icon(Icons.image,
+                                size: 50, color: Colors.black),
+                          ),
                   ),
                   Positioned(
-                    bottom: 12, 
-                    right: 12,  
+                    bottom: 12,
+                    right: 12,
                     child: Image.asset(
-                      'assets/icons/favorite_badge.png', 
-                      width: 28, 
+                      'assets/icons/favorite_badge.png',
+                      width: 28,
                       height: 28,
                       fit: BoxFit.contain,
                       errorBuilder: (context, error, stackTrace) => Container(
-                        width: 28, height: 28,
-                        decoration: const BoxDecoration(color: Colors.white70, shape: BoxShape.circle),
-                        child: const Icon(Icons.favorite, size: 18, color: Colors.black),
+                        width: 28,
+                        height: 28,
+                        decoration: const BoxDecoration(
+                            color: Colors.white70, shape: BoxShape.circle),
+                        child: const Icon(Icons.favorite,
+                            size: 18, color: Colors.black),
                       ),
                     ),
                   ),
                 ],
               ),
             ),
-            
-            // Lower Details Section
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    productName,
+                    product.name,
                     style: const TextStyle(color: Colors.white, fontSize: 12),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -208,9 +228,9 @@ class FavoriteProductCard extends StatelessWidget {
                           );
                         }),
                       ),
-                      const Text(
-                        'P 200.00',
-                        style: TextStyle(
+                      Text(
+                        product.formattedPrice,
+                        style: const TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
                           fontSize: 12,

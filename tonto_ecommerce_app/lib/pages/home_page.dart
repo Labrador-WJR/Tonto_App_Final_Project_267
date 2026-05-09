@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
 import '../models/data_models.dart';
+import '../services/supabase_service.dart';
 import 'cart_page.dart';
 import 'search_page.dart';
 import 'product_detail_page.dart';
-
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -27,18 +27,17 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
-    _startAutoSlide(); 
+    _startAutoSlide();
   }
 
   void _startAutoSlide() {
-    _timer?.cancel(); 
+    _timer?.cancel();
     _timer = Timer.periodic(const Duration(seconds: 3), (Timer timer) {
       if (_currentPage < _bannerImages.length - 1) {
         _currentPage++;
       } else {
-        _currentPage = 0; 
+        _currentPage = 0;
       }
-
       if (_pageController.hasClients) {
         _pageController.animateToPage(
           _currentPage,
@@ -70,13 +69,12 @@ class _HomePageState extends State<HomePage> {
           child: Image.asset(
             'assets/icons/logo.png',
             fit: BoxFit.contain,
-            errorBuilder: (context, error, stackTrace) => const Icon(Icons.pets, color: Colors.white),
+            errorBuilder: (context, error, stackTrace) =>
+                const Icon(Icons.pets, color: Colors.white),
           ),
         ),
-       // REPLACED: Make the search bar a clickable button that opens the SearchPage
         title: GestureDetector(
           onTap: () {
-            // Push the new Search Page
             Navigator.push(
               context,
               MaterialPageRoute(builder: (context) => const SearchPage()),
@@ -104,161 +102,179 @@ class _HomePageState extends State<HomePage> {
         actions: [
           IconButton(
             icon: Image.asset(
-              'assets/icons/cart.png', 
-              width: 24, 
-              height: 24, 
+              'assets/icons/cart.png',
+              width: 24,
+              height: 24,
               color: Colors.white,
-              errorBuilder: (context, error, stackTrace) => const Icon(Icons.shopping_cart, color: Colors.white),
+              errorBuilder: (context, error, stackTrace) =>
+                  const Icon(Icons.shopping_cart, color: Colors.white),
             ),
             onPressed: () {
-              Navigator.push(context, MaterialPageRoute(builder: (context) => const CartPage()));
+              Navigator.push(context,
+                  MaterialPageRoute(builder: (context) => const CartPage()));
             },
           ),
         ],
       ),
-      body: SingleChildScrollView(
-        child: Column(
-          children: [
-            SizedBox(
-              height: 200,
-              width: double.infinity,
-              child: PageView.builder(
-                controller: _pageController,
-                onPageChanged: (int page) {
-                  setState(() { _currentPage = page; });
-                  _startAutoSlide();
-                },
-                itemCount: _bannerImages.length,
-                itemBuilder: (context, index) {
-                  return Image.asset(
-                    _bannerImages[index],
-                    fit: BoxFit.cover, 
-                    errorBuilder: (context, error, stackTrace) {
-                      return Container(
-                        color: const Color(0xFFD9D9D9),
-                        child: const Center(
-                          child: Icon(Icons.image_not_supported, size: 50, color: Colors.grey),
-                        ),
-                      );
-                    },
-                  );
-                },
-              ),
-            ),
-            const SizedBox(height: 8),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: List.generate(_bannerImages.length, (index) {
-                return AnimatedContainer(
-                  duration: const Duration(milliseconds: 300),
-                  margin: const EdgeInsets.symmetric(horizontal: 4),
-                  width: _currentPage == index ? 16 : 8,
-                  height: 8,
-                  decoration: BoxDecoration(
-                    color: _currentPage == index ? Colors.black : Colors.grey,
-                    borderRadius: BorderRadius.circular(4),
-                  ),
+      body: Column(
+        children: [
+          SizedBox(
+            height: 200,
+            width: double.infinity,
+            child: PageView.builder(
+              controller: _pageController,
+              onPageChanged: (int page) {
+                setState(() {
+                  _currentPage = page;
+                });
+                _startAutoSlide();
+              },
+              itemCount: _bannerImages.length,
+              itemBuilder: (context, index) {
+                return Image.asset(
+                  _bannerImages[index],
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) {
+                    return Container(
+                      color: const Color(0xFFD9D9D9),
+                      child: const Center(
+                        child: Icon(Icons.image_not_supported,
+                            size: 50, color: Colors.grey),
+                      ),
+                    );
+                  },
                 );
-              }),
+              },
             ),
-            const SizedBox(height: 16),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0),
-              child: GridView.builder(
-                physics: const NeverScrollableScrollPhysics(),
-                shrinkWrap: true,
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  crossAxisSpacing: 16,
-                  mainAxisSpacing: 16,
-                  childAspectRatio: 0.75,
+          ),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: List.generate(_bannerImages.length, (index) {
+              return AnimatedContainer(
+                duration: const Duration(milliseconds: 300),
+                margin: const EdgeInsets.symmetric(horizontal: 4),
+                width: _currentPage == index ? 16 : 8,
+                height: 8,
+                decoration: BoxDecoration(
+                  color: _currentPage == index ? Colors.black : Colors.grey,
+                  borderRadius: BorderRadius.circular(4),
                 ),
-                itemCount: 6,
-               itemBuilder: (context, index) {
-                  // CHANGED: Wrapped in GestureDetector to make the whole card clickable
-                  return GestureDetector(
-                    onTap: () {
-                      Navigator.push(
+              );
+            }),
+          ),
+          const SizedBox(height: 16),
+          Expanded(
+            child: FutureBuilder<List<Product>>(
+              future: SupabaseService.getProducts(limit: 20),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                if (snapshot.hasError) {
+                  return const Center(child: Text('Failed to load products'));
+                }
+                final products = snapshot.data ?? [];
+                if (products.isEmpty) {
+                  return const Center(child: Text('No products yet'));
+                }
+                return GridView.builder(
+                  padding: const EdgeInsets.all(16),
+                  gridDelegate:
+                      const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    crossAxisSpacing: 16,
+                    mainAxisSpacing: 16,
+                    childAspectRatio: 0.75,
+                  ),
+                  itemCount: products.length,
+                  itemBuilder: (context, index) {
+                    final product = products[index];
+                    return GestureDetector(
+                      onTap: () => Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => const ProductDetailPage(
-                            // For wireframe demo, we pass mock data
-                            name: 'Product Name',
-                            price: 200.00,
-                          ),
+                          builder: (_) =>
+                              ProductDetailPage(product: product),
                         ),
-                      );
-                    },
-                    child: const ProductCard(), // Content pulled into separate widget for cleanliness
-                  );
-                },
-              ),
+                      ),
+                      child: ProductCard(product: product),
+                    );
+                  },
+                );
+              },
             ),
-            const SizedBox(height: 20),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 }
 
+// Product card now uses the actual product data
 class ProductCard extends StatelessWidget {
-  const ProductCard({super.key});
+  final Product product;
+  const ProductCard({super.key, required this.product});
 
   @override
   Widget build(BuildContext context) {
-    // Wrap the entire card in a GestureDetector right here!
     return GestureDetector(
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => const ProductDetailPage(
-              name: 'Product Name',
-              price: 200.00,
-            ),
-          ),
-        );
-      },
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => ProductDetailPage(product: product),
+        ),
+      ),
       child: Container(
         decoration: BoxDecoration(
-          color: const Color(0xFF383E46), 
-          borderRadius: BorderRadius.circular(8), 
+          color: const Color(0xFF383E46),
+          borderRadius: BorderRadius.circular(8),
         ),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start, 
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(
               child: Container(
-                margin: const EdgeInsets.all(8), 
+                margin: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFD9D9D9), 
+                  color: const Color(0xFFD9D9D9),
                   borderRadius: BorderRadius.circular(4),
                 ),
-                child: const Center(
-                  child: Icon(Icons.image, size: 50, color: Colors.black),
-                ),
+                child: product.imageUrl.isNotEmpty
+                    ? ClipRRect(
+                        borderRadius: BorderRadius.circular(4),
+                        child: Image.network(
+                          product.imageUrl,
+                          fit: BoxFit.cover,
+                          width: double.infinity,
+                          errorBuilder: (context, error, stackTrace) =>
+                              const Icon(Icons.image,
+                                  size: 50, color: Colors.black),
+                        ),
+                      )
+                    : const Icon(Icons.image, size: 50, color: Colors.black),
               ),
             ),
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'Product Name',
-                    style: TextStyle(color: Colors.white, fontSize: 12),
-                    maxLines: 1, 
-                    overflow: TextOverflow.ellipsis, 
+                  Text(
+                    product.name,
+                    style: const TextStyle(color: Colors.white, fontSize: 12),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 2),
-                  const Text(
-                    'Product Sold',
-                    style: TextStyle(color: Colors.grey, fontSize: 8),
+                  Text(
+                    '${product.soldCount} sold',
+                    style: const TextStyle(color: Colors.grey, fontSize: 8),
                   ),
                   const SizedBox(height: 4),
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween, 
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Row(
                         children: List.generate(5, (index) {
@@ -269,9 +285,9 @@ class ProductCard extends StatelessWidget {
                           );
                         }),
                       ),
-                      const Text(
-                        'P 200.00',
-                        style: TextStyle(
+                      Text(
+                        product.formattedPrice,
+                        style: const TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
                           fontSize: 12,
@@ -279,7 +295,7 @@ class ProductCard extends StatelessWidget {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 4), 
+                  const SizedBox(height: 4),
                 ],
               ),
             ),

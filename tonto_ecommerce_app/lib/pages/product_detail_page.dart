@@ -1,63 +1,44 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/data_models.dart';
+import '../services/supabase_service.dart';
 import 'cart_page.dart';
 import 'checkout_page.dart';
 
-// --- 10. PRODUCT DETAIL PAGE SECTION (Switchable Tabs Updated) ---
-
 class ProductDetailPage extends StatefulWidget {
-  final String name;
-  final double price;
-
-  const ProductDetailPage({
-    super.key,
-    required this.name,
-    required this.price,
-  });
+  final Product product;
+  const ProductDetailPage({super.key, required this.product});
 
   @override
   State<ProductDetailPage> createState() => _ProductDetailPageState();
 }
 
 class _ProductDetailPageState extends State<ProductDetailPage> {
-  // --- STATE VARIABLES ---
-  
-  // 1. Image gallery indicators
   int _currentImageIndex = 0;
-
-  // 2. Variant selections
-  int _selectedColorIndex = 1; // Default select the second color
-  String _selectedSize = 'M'; // Default select M
-
-  // Data for the variant selections
+  int _selectedColorIndex = 1;
+  String _selectedSize = 'M';
   final List<String> _sizes = ['XS', 'S', 'M', 'L', 'XL', '2XL'];
   final List<Color> _circleColors = [
-    const Color(0xFF2D3238), 
-    const Color(0xFFD5D5D5), 
-    const Color(0xFF383E46), 
+    const Color(0xFF2D3238),
+    const Color(0xFFD5D5D5),
+    const Color(0xFF383E46),
     const Color(0xFF1A1D21)
   ];
 
-  // 3. NEW: Switchable Tab Tracking
-  String _activeTab = 'Description'; // The app will start showing Description
+  String _activeTab = 'Description';
+  final String _mockDescription =
+      'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua...';
 
-  // --- MOCK CONTENT ---
-
-  // Large mock description string
-  final String _mockDescription = 'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.';
-
-  // Helper to show self-closing popups
   void _showAddedPopup(BuildContext context, String message) {
     showDialog(
       context: context,
-      barrierDismissible: false, 
+      barrierDismissible: false,
       builder: (BuildContext dialogContext) {
         Future.delayed(const Duration(milliseconds: 1500), () {
           if (dialogContext.mounted) {
             Navigator.pop(dialogContext);
           }
         });
-
         return Dialog(
           backgroundColor: Colors.transparent,
           elevation: 0,
@@ -79,7 +60,8 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                       color: Colors.white,
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(Icons.check, color: Colors.black, size: 40),
+                    child: const Icon(Icons.check,
+                        color: Colors.black, size: 40),
                   ),
                   const SizedBox(height: 24),
                   Text(
@@ -96,16 +78,13 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
     );
   }
 
-  // Helper function to build a dynamically switchable tab button
   Widget _buildTabButton(String tabName) {
     bool isSelected = _activeTab == tabName;
     const darkThemeColor = Color(0xFF2D3238);
-
     return GestureDetector(
       onTap: () {
-        // Update the state to switch the active tab and trigger a rebuild
         setState(() {
-          _activeTab = tabName; 
+          _activeTab = tabName;
         });
       },
       child: Column(
@@ -114,18 +93,15 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
             tabName,
             style: TextStyle(
               fontSize: 16,
-              // Only the active tab gets a bold font weight
               fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
               color: darkThemeColor,
             ),
           ),
           const SizedBox(height: 4),
-          // Animate the underline bar widening when selected
           AnimatedContainer(
             duration: const Duration(milliseconds: 200),
             height: 2,
-            // bar is only visible and wide on the selected tab
-            width: isSelected ? 80 : 0, 
+            width: isSelected ? 80 : 0,
             color: isSelected ? darkThemeColor : Colors.transparent,
           ),
         ],
@@ -133,21 +109,18 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
     );
   }
 
+  BoxDecoration _getVariantDecoration(bool isSelected) {
+    return BoxDecoration(
+      color: const Color(0xFFD5D5D5),
+      borderRadius: BorderRadius.circular(8),
+      border:
+          isSelected ? Border.all(color: Colors.black, width: 2) : null,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     const darkThemeColor = Color(0xFF2D3238);
-    const cardColor = Color(0xFFD5D5D5);
-
-    // Styling for size variant boxes
-    BoxDecoration _getVariantDecoration(bool isSelected) {
-      return BoxDecoration(
-        color: cardColor,
-        borderRadius: BorderRadius.circular(8),
-        border: isSelected 
-            ? Border.all(color: Colors.black, width: 2)
-            : null,
-      );
-    }
 
     return Scaffold(
       backgroundColor: const Color(0xFFF5F5F5),
@@ -176,9 +149,11 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
         ),
         actions: [
           IconButton(
-            icon: Image.asset('assets/icons/cart.png', width: 24, height: 24, color: Colors.white),
+            icon: Image.asset('assets/icons/cart.png',
+                width: 24, height: 24, color: Colors.white),
             onPressed: () {
-              Navigator.push(context, MaterialPageRoute(builder: (context) => const CartPage()));
+              Navigator.push(context,
+                  MaterialPageRoute(builder: (context) => const CartPage()));
             },
           ),
         ],
@@ -188,7 +163,6 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // --- 1. Top Image Gallery ---
             Container(
               height: 250,
               width: double.infinity,
@@ -196,24 +170,38 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                 color: const Color(0xFFD9D9D9),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: const Center(
-                child: Icon(Icons.image, size: 100, color: Colors.black),
-              ),
+              child: widget.product.imageUrl.isNotEmpty
+                  ? ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Image.network(
+                        widget.product.imageUrl,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) =>
+                            const Icon(Icons.image,
+                                size: 100, color: Colors.black),
+                      ),
+                    )
+                  : const Center(
+                      child: Icon(Icons.image, size: 100, color: Colors.black)),
             ),
             const SizedBox(height: 12),
-            // Dynamic Dot Indicators (Now clickable)
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: List.generate(4, (index) {
                 return GestureDetector(
-                  onTap: () { setState(() { _currentImageIndex = index; }); },
+                  onTap: () {
+                    setState(() {
+                      _currentImageIndex = index;
+                    });
+                  },
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 200),
                     margin: const EdgeInsets.symmetric(horizontal: 4),
                     width: _currentImageIndex == index ? 16 : 8,
                     height: 8,
                     decoration: BoxDecoration(
-                      color: _currentImageIndex == index ? Colors.black : Colors.grey,
+                      color:
+                          _currentImageIndex == index ? Colors.black : Colors.grey,
                       borderRadius: BorderRadius.circular(4),
                     ),
                   ),
@@ -222,28 +210,32 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
             ),
             const SizedBox(height: 20),
 
-            // --- 2. Product Name & Price ---
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  widget.name,
-                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: darkThemeColor),
-                ),
-                Text(
-                  'P ${widget.price.toStringAsFixed(2)}',
-                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: darkThemeColor),
-                ),
+                Text(widget.product.name,
+                    style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: darkThemeColor)),
+                Text(widget.product.formattedPrice,
+                    style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: darkThemeColor)),
               ],
             ),
             const SizedBox(height: 16),
 
-            // --- 3. Color Variants (Circles - Now Interactive) ---
             Row(
               children: List.generate(4, (index) {
                 bool isSelected = _selectedColorIndex == index;
                 return GestureDetector(
-                  onTap: () { setState(() { _selectedColorIndex = index; }); },
+                  onTap: () {
+                    setState(() {
+                      _selectedColorIndex = index;
+                    });
+                  },
                   child: Padding(
                     padding: const EdgeInsets.only(right: 12.0),
                     child: Container(
@@ -252,7 +244,9 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                       decoration: BoxDecoration(
                         color: _circleColors[index],
                         shape: BoxShape.circle,
-                        border: isSelected ? Border.all(color: Colors.black45, width: 3) : null,
+                        border: isSelected
+                            ? Border.all(color: Colors.black45, width: 3)
+                            : null,
                       ),
                     ),
                   ),
@@ -261,14 +255,18 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
             ),
             const SizedBox(height: 24),
 
-            // --- 4. Size Selector (highlight on click) ---
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text('Size', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: darkThemeColor)),
+                const Text('Size',
+                    style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: darkThemeColor)),
                 const Row(
                   children: [
-                    Text('9.8', style: TextStyle(fontWeight: FontWeight.bold)),
+                    Text('9.8',
+                        style: TextStyle(fontWeight: FontWeight.bold)),
                     SizedBox(width: 4),
                     Icon(Icons.star, size: 18),
                   ],
@@ -276,19 +274,24 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
               ],
             ),
             const SizedBox(height: 12),
-            // Sizes Row
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: _sizes.map((size) {
                 bool isSelected = size == _selectedSize;
                 return GestureDetector(
-                  onTap: () { setState(() { _selectedSize = size; }); },
+                  onTap: () {
+                    setState(() {
+                      _selectedSize = size;
+                    });
+                  },
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    decoration: _getVariantDecoration(isSelected), // Highlights selected box
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 12),
+                    decoration: _getVariantDecoration(isSelected),
                     child: Text(
-                      size, 
-                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      size,
+                      style: const TextStyle(
+                          fontSize: 16, fontWeight: FontWeight.bold),
                     ),
                   ),
                 );
@@ -296,26 +299,22 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
             ),
             const SizedBox(height: 30),
 
-            // --- 5. UPDATED Switchable Tabs Row (Description / Reviews Header) ---
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                _buildTabButton('Description'), // Dynamic button
-                _buildTabButton('Reviews'), // Dynamic button
+                _buildTabButton('Description'),
+                _buildTabButton('Reviews'),
               ],
             ),
             const SizedBox(height: 20),
 
-            // --- 6. Conditional Tab Content Area ---
-            // If activeTab is 'Description', show text. If not, show review list.
-            if (_activeTab == 'Description') ...[
-              // Child 0: Description content (Lorem ipsum string)
+            if (_activeTab == 'Description')
               Text(
-                _mockDescription,
-                style: const TextStyle(fontSize: 14, color: Colors.black87, height: 1.5), // height increases line-height for readability
-              ),
-            ] else ...[
-              // Child 1: Review content (Mock static list of reviews)
+                widget.product.description ?? _mockDescription,
+                style: const TextStyle(
+                    fontSize: 14, color: Colors.black87, height: 1.5),
+              )
+            else
               ListView.builder(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
@@ -333,7 +332,9 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                             Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text('Username', style: TextStyle(fontWeight: FontWeight.bold)),
+                                Text('Username',
+                                    style:
+                                        TextStyle(fontWeight: FontWeight.bold)),
                                 Text('9.8 *'),
                               ],
                             ),
@@ -341,7 +342,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                         ),
                         SizedBox(height: 8),
                         Text(
-                          'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed sit amet odio at nisl iaculis aliquam.',
+                          'Lorem ipsum dolor sit amet, consectetur adipiscing elit.',
                           style: TextStyle(color: Colors.black87),
                         ),
                       ],
@@ -349,65 +350,85 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                   );
                 },
               ),
-            ],
-            const SizedBox(height: 100), // Space for bottom bar
+            const SizedBox(height: 100),
           ],
         ),
       ),
-      // --- Bottom Bar Button Section Remains Identical ---
       bottomNavigationBar: Container(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
         decoration: const BoxDecoration(
           color: Colors.white,
-          boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, -2))],
+          boxShadow: [
+            BoxShadow(
+                color: Colors.black12,
+                blurRadius: 4,
+                offset: Offset(0, -2))
+          ],
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             SizedBox(
-              width: 60, height: 50,
-              child: ElevatedButton(
-                onPressed: () { _showAddedPopup(context, 'Item added to Favorites'); },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF383E46),
-                  foregroundColor: Colors.white,
-                  elevation: 4,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  padding: EdgeInsets.zero,
-                ),
-                child: const Icon(Icons.favorite, color: Colors.white, size: 28),
-              ),
-            ),
-            SizedBox(
-              width: 60, height: 50,
-              child: ElevatedButton(
-                onPressed: () { _showAddedPopup(context, 'Item added to Cart'); },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF383E46),
-                  foregroundColor: Colors.white,
-                  elevation: 4,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  padding: EdgeInsets.zero,
-                ),
-                child: const Icon(Icons.shopping_cart, color: Colors.white, size: 28),
-              ),
-            ),
-            SizedBox(
-              width: 180, height: 50,
+              width: 60,
+              height: 50,
               child: ElevatedButton(
                 onPressed: () {
-                  final buyNowItem = CartItem(
-                    id: DateTime.now().millisecondsSinceEpoch, 
-                    name: widget.name,
-                    imagePath: 'placeholder', 
-                    price: widget.price,
+                  _showAddedPopup(context, 'Item added to Favorites');
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF383E46),
+                  foregroundColor: Colors.white,
+                  elevation: 4,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                  padding: EdgeInsets.zero,
+                ),
+                child: const Icon(Icons.favorite,
+                    color: Colors.white, size: 28),
+              ),
+            ),
+            SizedBox(
+              width: 60,
+              height: 50,
+              child: ElevatedButton(
+                onPressed: () async {
+                  final userId =
+                      Supabase.instance.client.auth.currentUser?.id;
+                  if (userId == null) return;
+                  await SupabaseService.addToCart(
+                      userId, widget.product.id);
+                  _showAddedPopup(context, 'Item added to Cart');
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF383E46),
+                  foregroundColor: Colors.white,
+                  elevation: 4,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                  padding: EdgeInsets.zero,
+                ),
+                child: const Icon(Icons.shopping_cart,
+                    color: Colors.white, size: 28),
+              ),
+            ),
+            SizedBox(
+              width: 180,
+              height: 50,
+              child: ElevatedButton(
+                onPressed: () {
+                  final userId = Supabase.instance.client.auth.currentUser?.id ?? '';
+                  final tempCartItem = CartItemModel(
+                    id: '',
+                    userId: userId,
+                    productId: widget.product.id,
                     quantity: 1,
+                    product: widget.product,
                   );
                   Navigator.push(
                     context,
                     MaterialPageRoute(
                       builder: (context) => CheckoutPage(
-                        checkoutItems: [buyNowItem], 
+                        checkoutItems: [tempCartItem],
                       ),
                     ),
                   );
@@ -415,10 +436,12 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF383E46),
                   foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
                   elevation: 4,
                 ),
-                child: const Text('Buy Now', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                child: const Text('Buy Now',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
               ),
             ),
           ],
