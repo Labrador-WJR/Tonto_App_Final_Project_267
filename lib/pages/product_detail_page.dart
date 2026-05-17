@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart'; // 1. ADDED SUPABASE IMPORT
+import 'package:supabase_flutter/supabase_flutter.dart'; 
+import 'package:audioplayers/audioplayers.dart'; // --- ADDED: Audio Player Import ---
 import '../models/data_models.dart';
 import 'cart_page.dart';
 import 'checkout_page.dart';
-
-// --- 10. PRODUCT DETAIL PAGE SECTION (Switchable Tabs Updated) ---
 
 class ProductDetailPage extends StatefulWidget {
   final int id;
@@ -12,8 +11,8 @@ class ProductDetailPage extends StatefulWidget {
   final double price;
   final String description;
   final String image;
-  final double rating;       // ADDED: For the stars
-  final int sales;      // ADDED: For the "Sold" text
+  final double rating;       
+  final int sales;      
 
   const ProductDetailPage({
     super.key,
@@ -22,8 +21,8 @@ class ProductDetailPage extends StatefulWidget {
     required this.price,
     required this.description,
     required this.image,
-    required this.rating,       // ADDED
-    required this.sales,   // ADDED
+    required this.rating,       
+    required this.sales,   
   });
 
   @override
@@ -31,15 +30,16 @@ class ProductDetailPage extends StatefulWidget {
 }
 
 class _ProductDetailPageState extends State<ProductDetailPage> {
-  // Changing these to 'int?' (nullable) means they start entirely blank!
   int? _selectedColorIndex; 
   int? _selectedSizeIndex;
 
-  // Supabase Client & Loading State
+  // Supabase & Audio Clients
   final _supabase = Supabase.instance.client;
+  final AudioPlayer _audioPlayer = AudioPlayer(); // --- ADDED: Audio Player Instance ---
+  
   bool _isLoading = false;
+  bool _isFavorite = false;
 
-  // Data for the variant selections
   final List<String> _sizes = ['XS', 'S', 'M', 'L', 'XL', '2XL'];
   final List<Color> _circleColors = [
     const Color(0xFF2D3238), 
@@ -48,93 +48,95 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
     const Color(0xFF1A1D21)
   ];
 
-  // 3. NEW: Switchable Tab Tracking
-  String _activeTab = 'Description'; // The app will start showing Description
+  String _activeTab = 'Description'; 
 
+  @override
+  void initState() {
+    super.initState();
+    _checkIfFavorite();
+  }
 
-  // --- SUPABASE: ADD TO CART ---
-  Future<void> _addToCart({bool isBuyNow = false}) async {
+  @override
+  void dispose() {
+    _audioPlayer.dispose(); // --- ADDED: Clean up audio player when page closes ---
+    super.dispose();
+  }
+
+  Future<void> _checkIfFavorite() async {
     final user = _supabase.auth.currentUser;
-    if (user == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please log in first!')));
-      return;
-    }
+    if (user == null) return;
 
-    // Validation: Force them to pick variants!
-    if (_selectedSizeIndex == null || _selectedColorIndex == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select a size and color first!')),
-      );
-      return;
-    }
-
-    setState(() => _isLoading = true);
     try {
-      await _supabase.from('cart_items').insert({
-        'user_id': user.id,
-        'product_id': widget.id,
-        'quantity': 1,
-        'size': _sizes[_selectedSizeIndex!],
-        'color_index': _selectedColorIndex,
-      });
-      
-      if (mounted) {
-        if (isBuyNow) {
-          // If Buy Now, go to checkout with the item details
-          final buyNowItem = CartItem(
-            id: DateTime.now().millisecondsSinceEpoch, 
-            name: widget.name,
-            imagePath: widget.image, // Passed the real image here!
-            price: widget.price,
-            quantity: 1,
-          );
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => CheckoutPage(checkoutItems: [buyNowItem]),
+      final response = await _supabase
+          .from('favorites')
+          .select()
+          .eq('user_id', user.id)
+          .eq('product_id', widget.id)
+          .maybeSingle(); 
+
+      if (mounted && response != null) {
+        setState(() {
+          _isFavorite = true;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error checking favorite status: $e');
+    }
+  }
+
+// --- FIXED: Validation Popup ---
+  void _showValidationDialog(String message) {
+    // Safely stop and play the sound in the background!
+    () async {
+      await _audioPlayer.stop();
+      await _audioPlayer.play(AssetSource('sounds/error.mp3'));
+    }();
+
+    showDialog(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          child: Center(
+            child: Container(
+              width: 250,
+              padding: const EdgeInsets.all(24.0),
+              decoration: BoxDecoration(
+                color: const Color(0xFF383E46),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 50, height: 50,
+                    decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+                    child: const Center(child: Text('!', style: TextStyle(color: Color(0xFF383E46), fontSize: 28, fontWeight: FontWeight.bold))),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text('Oops!', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 8),
+                  Text(message, textAlign: TextAlign.center, style: const TextStyle(color: Colors.white, fontSize: 14)),
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    width: 120, height: 40,
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.pop(dialogContext),
+                      style: ElevatedButton.styleFrom(backgroundColor: Colors.white, foregroundColor: const Color(0xFF383E46), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
+                      child: const Text('OK', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                    ),
+                  ),
+                ],
+              ),
             ),
-          );
-        } else {
-          // If just Add to Cart, show your beautiful custom popup
-          _showAddedPopup(context, 'Item added to Cart');
-        }
-      }
-    } catch (e) {
-      // Catch if it's already in the cart (due to our UNIQUE constraint)
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('This exact item is already in your cart!')));
-      }
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
+          ),
+        );
+      },
+    );
   }
-
-  // --- SUPABASE: ADD TO FAVORITES ---
-  Future<void> _addToFavorites() async {
-    final user = _supabase.auth.currentUser;
-    if (user == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please log in first!')));
-      return;
-    }
-
-    try {
-      await _supabase.from('favorites').insert({
-        'user_id': user.id,
-        'product_id': widget.id,
-      });
-      if (mounted) {
-        _showAddedPopup(context, 'Item added to Favorites');
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Already in your favorites! ❤️')));
-      }
-    }
-  }
-
-
-  // Helper to show self-closing popups
-  void _showAddedPopup(BuildContext context, String message) {
+  // --- STATUS POPUP ---
+  void _showStatusPopup(BuildContext context, String message, IconData icon) {
     showDialog(
       context: context,
       barrierDismissible: false, 
@@ -166,7 +168,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                       color: Colors.white,
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(Icons.check, color: Colors.black, size: 40),
+                    child: Icon(icon, color: Colors.black, size: 40),
                   ),
                   const SizedBox(height: 24),
                   Text(
@@ -183,7 +185,121 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
     );
   }
 
-  // Helper function to build a dynamically switchable tab button
+  // --- SUPABASE: ADD TO CART ---
+  // --- FIXED: ADD TO CART vs BUY NOW LOGIC ---
+  Future<void> _addToCart({bool isBuyNow = false}) async {
+    final user = _supabase.auth.currentUser;
+    if (user == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please log in first!')));
+      return;
+    }
+
+    if (_selectedColorIndex == null) {
+      _showValidationDialog('Please select a color variant');
+      return;
+    }
+    
+    if (_selectedSizeIndex == null) {
+      _showValidationDialog('Please select a shirt size');
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    try {
+      if (isBuyNow) {
+        // --- 1. BUY NOW LOGIC: Do NOT save to DB! Just navigate to checkout. ---
+        if (mounted) {
+          final buyNowItem = CartItem(
+            id: DateTime.now().millisecondsSinceEpoch, 
+            name: widget.name,
+            imagePath: widget.image, 
+            price: widget.price,
+            quantity: 1,
+          );
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => CheckoutPage(checkoutItems: [buyNowItem]),
+            ),
+          );
+        }
+      } else {
+        // --- 2. ADD TO CART LOGIC: Save to DB, play sound, show popup! ---
+        await _supabase.from('cart_items').insert({
+          'user_id': user.id,
+          'product_id': widget.id,
+          'quantity': 1,
+          'size': _sizes[_selectedSizeIndex!],
+          'color_index': _selectedColorIndex,
+        });
+        
+        if (mounted) {
+          // Safe background audio playback
+          () async {
+            await _audioPlayer.stop();
+            await _audioPlayer.play(AssetSource('sounds/cart.mp3'));
+          }();
+          
+          _showStatusPopup(context, 'Item added to Cart', Icons.check);
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Failed to process item or already in cart!')));
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+  // --- SUPABASE: TOGGLE FAVORITES ---
+  Future<void> _toggleFavorite() async {
+    final user = _supabase.auth.currentUser;
+    if (user == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please log in first!')));
+      return;
+    }
+
+    final bool wasFavorite = _isFavorite;
+    setState(() {
+      _isFavorite = !_isFavorite;
+    });
+
+    try {
+      if (wasFavorite) {
+        // Remove from favorites
+        await _supabase
+            .from('favorites')
+            .delete()
+            .eq('user_id', user.id)
+            .eq('product_id', widget.id);
+            
+        if (mounted) {
+          _showStatusPopup(context, 'Item removed from Favorites', Icons.favorite_border);
+        }
+      } else {
+        // Add to favorites
+        await _supabase.from('favorites').insert({
+          'user_id': user.id,
+          'product_id': widget.id,
+        });
+        
+        if (mounted) {
+          // --- ADDED: Play Favorite Sound! ---
+          _audioPlayer.play(AssetSource('sounds/fave.mp3'));
+          _showStatusPopup(context, 'Item added to Favorites', Icons.check);
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isFavorite = wasFavorite;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Failed to update favorites.')));
+      }
+    }
+  }
+
   Widget _buildTabButton(String tabName) {
     bool isSelected = _activeTab == tabName;
     const darkThemeColor = Color(0xFF2D3238);
@@ -319,12 +435,11 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
            Row(
               children: List.generate(4, (index) {
                 bool isSelected = _selectedColorIndex == index;
-                Color currentColor = _circleColors[index]; // 1. Grab the current color
+                Color currentColor = _circleColors[index]; 
                 
-                // 2. Check how bright the color is to decide the border color!
                 Color borderColor = currentColor.computeLuminance() > 0.5 
-                    ? Colors.black87 // Use dark border for light colors
-                    : Colors.white;  // Use light border for dark colors
+                    ? Colors.black87 
+                    : Colors.white;  
 
                 return GestureDetector(
                   onTap: () { setState(() { _selectedColorIndex = index; }); },
@@ -336,10 +451,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                       decoration: BoxDecoration(
                         color: currentColor,
                         shape: BoxShape.circle,
-                        // 3. Apply our smart border color
                         border: isSelected ? Border.all(color: borderColor, width: 5) : null,
-                        
-                        // Optional: Add a tiny shadow so white circles don't blend into the grey background
                         boxShadow: [
                            BoxShadow(color: Colors.black.withOpacity(1), blurRadius: 4, offset: const Offset(0, 2))
                         ],
@@ -464,7 +576,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
             SizedBox(
               width: 60, height: 50,
               child: ElevatedButton(
-                onPressed: _addToFavorites, // TRIGGER SUPABASE FAVORITES
+                onPressed: _toggleFavorite, 
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF383E46),
                   foregroundColor: Colors.white,
@@ -472,13 +584,17 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   padding: EdgeInsets.zero,
                 ),
-                child: const Icon(Icons.favorite, color: Colors.white, size: 28),
+                child: Icon(
+                  _isFavorite ? Icons.favorite : Icons.favorite_border, 
+                  color: _isFavorite ? Colors.redAccent : Colors.white, 
+                  size: 28
+                ),
               ),
             ),
             SizedBox(
               width: 60, height: 50,
               child: ElevatedButton(
-                onPressed: _isLoading ? null : () => _addToCart(isBuyNow: false), // TRIGGER SUPABASE CART
+                onPressed: _isLoading ? null : () => _addToCart(isBuyNow: false),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF383E46),
                   foregroundColor: Colors.white,
@@ -494,7 +610,7 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
             SizedBox(
               width: 180, height: 50,
               child: ElevatedButton(
-                onPressed: _isLoading ? null : () => _addToCart(isBuyNow: true), // TRIGGER SUPABASE CART + NAVIGATE
+                onPressed: _isLoading ? null : () => _addToCart(isBuyNow: true), 
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF383E46),
                   foregroundColor: Colors.white,

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart'; // ADDED: Supabase import
+import 'package:supabase_flutter/supabase_flutter.dart'; 
 import 'address_page.dart';
+import 'login_page.dart'; // --- ADDED: Import for login page routing ---
 
 // ============================================================================
 // 12. SETTINGS PAGE SECTION
@@ -9,6 +10,50 @@ import 'address_page.dart';
 class SettingsPage extends StatelessWidget {
   const SettingsPage({super.key});
 
+// --- NEW: Log Out Function with Confirmation Dialog ---
+  Future<void> _handleLogout(BuildContext context) async {
+    final bool confirm = await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF383E46),
+        title: const Text('Log Out', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        content: const Text('Are you sure you want to log out?', style: TextStyle(color: Colors.white70)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel', style: TextStyle(color: Colors.white54)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent, foregroundColor: Colors.white),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Log Out', style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    ) ?? false;
+
+    if (!confirm) return;
+
+    try {
+      // Tell Supabase to end the active session
+      await Supabase.instance.client.auth.signOut();
+      
+      if (context.mounted) {
+        // --- FIXED: rootNavigator: true forces the app to destroy the Bottom Navigation Bar ---
+        Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (context) => const LoginPage()),
+          (route) => false, 
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Error logging out. Please try again.')),
+        );
+      }
+    }
+  }
+  
   @override
   Widget build(BuildContext context) {
     const darkThemeColor = Color(0xFF2D3238); 
@@ -48,6 +93,7 @@ class SettingsPage extends StatelessWidget {
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
+            // 1. Edit Profile Details Button
             Container(
               padding: const EdgeInsets.all(16.0),
               decoration: cardDecoration,
@@ -66,6 +112,29 @@ class SettingsPage extends StatelessWidget {
                       ),
                     ),
                     Icon(Icons.arrow_forward_ios, size: 16, color: darkThemeColor), 
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // 2. NEW: Log Out Button
+            Container(
+              padding: const EdgeInsets.all(16.0),
+              decoration: cardDecoration,
+              child: GestureDetector(
+                onTap: () => _handleLogout(context), // Triggers the logout confirmation
+                child: const Row(
+                  children: [
+                    Icon(Icons.logout, size: 28, color: Colors.redAccent), 
+                    SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        'Log Out',
+                        style: TextStyle(color: Colors.redAccent, fontSize: 16, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                    Icon(Icons.arrow_forward_ios, size: 16, color: Colors.redAccent), 
                   ],
                 ),
               ),
@@ -163,7 +232,6 @@ class _EditingProfilePageState extends State<EditingProfilePage> {
       await _supabase.from('profiles').update({
         'full_name': fullName.trim(),
         'contact_number': _contactNumberController.text.trim(),
-        // Note: Updating email in the profiles table for display. Actual Auth email updates require confirmation logic.
         'email': _emailController.text.trim(), 
       }).eq('id', user.id);
 
@@ -206,7 +274,6 @@ class _EditingProfilePageState extends State<EditingProfilePage> {
     );
   }
 
-  // UPDATED: Now accepts a TextEditingController
   Widget _buildDetailInputField(String label, String hintText, TextEditingController controller) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 20.0),
