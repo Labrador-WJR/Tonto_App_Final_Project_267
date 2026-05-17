@@ -239,7 +239,7 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
     }
 
     // List of standard statuses an admin can select
-    List<String> validStatuses = ['Pending', 'Shipping', 'Deliver', 'Completed'];
+    List<String> validStatuses = ['Pending', 'Shipping', 'Delivered', 'Completed'];
     
     // Safety check just in case the database has a weird custom status saved
     if (!validStatuses.contains(status)) {

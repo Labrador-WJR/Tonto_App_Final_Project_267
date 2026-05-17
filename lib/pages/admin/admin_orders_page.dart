@@ -17,7 +17,7 @@ class _AdminOrdersPageState extends State<AdminOrdersPage> {
 
   // --- STANDARD ORDERS STATE ---
   String _selectedFilter = 'All';
-  final List<String> _filters = ['All', 'Pending', 'Shipping', 'Deliver', 'Completed'];
+  final List<String> _filters = ['All', 'Pending', 'Shipping', 'Delivered', 'Completed'];
   List<Map<String, dynamic>> _allOrders = [];
   
   // --- CUSTOM ORDERS STATE ---
@@ -412,7 +412,7 @@ class _AdminOrdersPageState extends State<AdminOrdersPage> {
         labelColor = const Color(0xFFA02B2B); bgColor = const Color(0xFFE5B5B5); break;
       case 'Shipping':
         labelColor = const Color(0xFF2B5B84); bgColor = const Color(0xFFB5D1E5); break;
-      case 'Deliver':
+      case 'Delivered':
         labelColor = const Color(0xFFB8781B); bgColor = const Color(0xFFFBE0B2); break;
       case 'Completed':
       default:
