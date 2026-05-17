@@ -40,10 +40,18 @@ class _HomePageState extends State<HomePage> {
     _fetchFavorites(); 
   }
 
-  // Function to fetch products from Supabase
+  // --- FIXED: Fetch and Shuffle Products ---
   Future<List<Map<String, dynamic>>> _fetchProducts() async {
+    // 1. Get the data from Supabase
     final response = await _supabase.from('products').select('*');
-    return response;
+    
+    // 2. Convert to a modifiable list
+    List<Map<String, dynamic>> fetchedProducts = List<Map<String, dynamic>>.from(response);
+    
+    // 3. SHUFFLE THE LIST!
+    fetchedProducts.shuffle(); 
+    
+    return fetchedProducts;
   }
 
   // Function to fetch user's favorites from Supabase
@@ -328,7 +336,7 @@ class ProductCard extends StatelessWidget {
           children: [
             Expanded(
               child: Stack(
-                fit: StackFit.expand, // --- THE FIX: Forces children to stretch and fill the space ---
+                fit: StackFit.expand, 
                 children: [
                   Container(
                     margin: const EdgeInsets.all(8), 
@@ -343,7 +351,7 @@ class ProductCard extends StatelessWidget {
                               image,
                               fit: BoxFit.cover,
                               width: double.infinity,
-                              height: double.infinity, // --- THE FIX: Forces the image to fill the container height ---
+                              height: double.infinity, 
                               errorBuilder: (context, error, stackTrace) => const Center(
                                 child: Icon(Icons.image_not_supported, size: 50, color: Colors.grey),
                               ),
