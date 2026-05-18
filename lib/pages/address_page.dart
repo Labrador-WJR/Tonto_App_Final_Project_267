@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'; // --- ADDED: For input formatters ---
 import 'package:supabase_flutter/supabase_flutter.dart'; 
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -7,7 +8,7 @@ import 'package:location/location.dart' as loc;
 import 'package:permission_handler/permission_handler.dart';
 
 // ============================================================================
-// 1. FULL SCREEN MAP PICKER (Reused from Sign Up)
+// 1. FULL SCREEN MAP PICKER
 // ============================================================================
 class AddressLocationPickerMap extends StatefulWidget {
   const AddressLocationPickerMap({super.key});
@@ -19,7 +20,7 @@ class AddressLocationPickerMap extends StatefulWidget {
 class _AddressLocationPickerMapState extends State<AddressLocationPickerMap> {
   late MapController _mapController;
   LatLng? _pickedPoint;
-  LatLng _currentCenter = const LatLng(14.5995, 120.9842); // Defaults to Manila
+  LatLng _currentCenter = const LatLng(14.5995, 120.9842);
 
   @override
   void initState() {
@@ -165,7 +166,6 @@ class _AddressPageState extends State<AddressPage> {
     }
   }
 
-  // --- UPDATED: Now saves Latitude and Longitude to the database ---
   Future<void> _saveNewAddress(String newAddressString, bool isDefault, double? lat, double? lng) async {
     final user = _supabase.auth.currentUser;
     if (user == null) return;
@@ -294,7 +294,6 @@ class _AddressPageState extends State<AddressPage> {
                       ),
                     const SizedBox(height: 20),
                   ] else ...[
-                    // --- THE NEW ADDRESS FORM ---
                     NewAddressFormWidget(
                       onSave: (newAddressString, isDefault, lat, lng) {
                         _saveNewAddress(newAddressString, isDefault, lat, lng);
@@ -311,7 +310,7 @@ class _AddressPageState extends State<AddressPage> {
 }
 
 // ============================================================================
-// 3. NEW ADDRESS FORM WIDGET (With Map Integration)
+// 3. NEW ADDRESS FORM WIDGET 
 // ============================================================================
 class NewAddressFormWidget extends StatefulWidget {
   final Function(String, bool, double?, double?) onSave;
@@ -328,7 +327,6 @@ class _NewAddressFormWidgetState extends State<NewAddressFormWidget> {
   final _streetController = TextEditingController();
   bool _setAsDefault = false; 
 
-  // Location State
   LatLng? _selectedLocation;
   bool _locationPicked = false;
 
@@ -338,7 +336,6 @@ class _NewAddressFormWidgetState extends State<NewAddressFormWidget> {
     super.dispose();
   }
 
-  // --- MAP FUNCTIONS ---
   Future<void> _getCurrentLocation() async {
     PermissionStatus status = await Permission.location.request();
     if (!status.isGranted) {
@@ -382,18 +379,15 @@ class _NewAddressFormWidgetState extends State<NewAddressFormWidget> {
     }
   }
 
-  // --- REVERSE GEOCODING (Auto-fills the text boxes) ---
  Future<void> _updateAddressFromCoordinates(double lat, double lng) async {
     try {
       List<Placemark> placemarks = await placemarkFromCoordinates(lat, lng);
       if (placemarks.isNotEmpty) {
         final pm = placemarks.first;
         setState(() {
-          // 1. Grab ANY building, street, or identifiable local name
           String street = [pm.street, pm.thoroughfare, pm.subThoroughfare, pm.name]
               .where((p) => p != null && p.isNotEmpty).join(', ');
               
-          // 2. Grab the broader region (Barangay, City, Province)
           String province = [
             pm.subLocality,
             pm.locality,
@@ -402,7 +396,6 @@ class _NewAddressFormWidgetState extends State<NewAddressFormWidget> {
             pm.country
           ].where((part) => part != null && part.isNotEmpty).join(', ');
           
-          // 3. Fallbacks so the boxes are never completely empty if data exists
           _streetController.text = street.isNotEmpty ? street : 'Unknown Street';
           _provinceController.text = province.isNotEmpty ? province : 'Unknown Location';
           _postalCodeController.text = pm.postalCode ?? '';
@@ -430,7 +423,6 @@ class _NewAddressFormWidgetState extends State<NewAddressFormWidget> {
         const Text('New Address', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: darkThemeColor)), 
         const SizedBox(height: 16),
 
-        // --- THE NEW MAP BUTTONS ---
         Row(
           children: [
             Expanded(
@@ -478,7 +470,10 @@ class _NewAddressFormWidgetState extends State<NewAddressFormWidget> {
           padding: const EdgeInsets.all(12.0), decoration: BoxDecoration(color: const Color(0xFFD5D5D5), borderRadius: BorderRadius.circular(12)),
           child: Column(children: [
             _buildFormInput(_fullNameController, 'Full Name'), 
-            _buildFormInput(_contactNumberController, 'Contact Number'), 
+            
+            // --- FIXED: Uses the isPhone flag to lock the +63 prefix ---
+            _buildFormInput(_contactNumberController, '912 345 6789', isPhone: true), 
+            
             _buildFormInput(_provinceController, 'Province, Municipality, Barangay'), 
             _buildFormInput(_postalCodeController, 'Postal Code'), 
             _buildFormInput(_streetController, 'Street Name/House Number')
@@ -491,11 +486,17 @@ class _NewAddressFormWidgetState extends State<NewAddressFormWidget> {
           width: double.infinity,
           child: ElevatedButton(
             onPressed: () {
-              final fullName = _fullNameController.text; final street = _streetController.text; final province = _provinceController.text; final postalCode = _postalCodeController.text; final contact = _contactNumberController.text;
+              final fullName = _fullNameController.text; 
+              final street = _streetController.text; 
+              final province = _provinceController.text; 
+              final postalCode = _postalCodeController.text; 
+              
+              // --- FIXED: Stitches the +63 when saving to the database ---
+              final contact = _contactNumberController.text.isNotEmpty ? '+63${_contactNumberController.text.trim()}' : '';
+              
               if (fullName.isNotEmpty && street.isNotEmpty) {
                 final newAddressString = '$fullName, $street, $province $postalCode, $contact';
                 
-                // Pass back the string, the boolean, AND the coordinates!
                 widget.onSave(newAddressString, _setAsDefault, _selectedLocation?.latitude, _selectedLocation?.longitude); 
               } else { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please fill out all address details.'))); }
             },
@@ -507,7 +508,32 @@ class _NewAddressFormWidgetState extends State<NewAddressFormWidget> {
     );
   }
 
-  Widget _buildFormInput(TextEditingController controller, String placeholderText) {
-    return Padding(padding: const EdgeInsets.only(bottom: 12.0), child: Container(decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)), child: TextField(controller: controller, decoration: InputDecoration(hintText: placeholderText, border: InputBorder.none, contentPadding: const EdgeInsets.all(16.0)))));
+  // --- FIXED: Updated the builder to handle the isPhone condition ---
+  Widget _buildFormInput(TextEditingController controller, String placeholderText, {bool isPhone = false}) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12.0),
+      child: Container(
+        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
+        child: TextField(
+          controller: controller,
+          keyboardType: isPhone ? TextInputType.phone : TextInputType.text,
+          inputFormatters: isPhone
+              ? [
+                  FilteringTextInputFormatter.digitsOnly,
+                  LengthLimitingTextInputFormatter(10), // Limit to exactly 10 digits
+                ]
+              : null,
+          decoration: InputDecoration(
+            prefixText: isPhone ? '+63 ' : null, // The locked prefix
+            prefixStyle: isPhone 
+                ? const TextStyle(color: Colors.black87, fontSize: 16, fontWeight: FontWeight.bold) 
+                : null,
+            hintText: placeholderText,
+            border: InputBorder.none,
+            contentPadding: const EdgeInsets.all(16.0),
+          ),
+        ),
+      ),
+    );
   }
 }

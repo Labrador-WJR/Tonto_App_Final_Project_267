@@ -42,7 +42,8 @@ class _AdminOrdersPageState extends State<AdminOrdersPage> {
       final response = await _supabase
           .from('orders')
           .select('id, status, total_price, user_id, created_at')
-          .order('created_at', ascending: false);
+          // --- CHANGED: ascending is now true for First In, First Out (FIFO) ---
+          .order('created_at', ascending: true);
 
       final List<Map<String, dynamic>> fetchedOrders = [];
       for (var order in response) {
@@ -97,17 +98,17 @@ class _AdminOrdersPageState extends State<AdminOrdersPage> {
     }
   }
 
-  // --- FIXED: Explicit variable mapping to prevent Dart dynamic crashes! ---
   Future<void> _fetchCustomOrders() async {
     setState(() => _isLoading = true);
     try {
       final response = await _supabase
           .from('custom_designs')
           .select('*')
-          .order('created_at', ascending: false);
+          // --- CHANGED: ascending is now true for First In, First Out (FIFO) ---
+          .order('created_at', ascending: true);
 
       final List<Map<String, dynamic>> fetchedCustoms = [];
-      final List<dynamic> dataList = response; // Safely cast the response
+      final List<dynamic> dataList = response; 
 
       for (var row in dataList) {
         final item = row as Map<String, dynamic>;
@@ -124,7 +125,6 @@ class _AdminOrdersPageState extends State<AdminOrdersPage> {
           } catch (_) {}
         }
         
-        // Safely extract every single value explicitly instead of using `...item`
         fetchedCustoms.add({
           'id': item['id'],
           'user_id': item['user_id'],
@@ -146,7 +146,6 @@ class _AdminOrdersPageState extends State<AdminOrdersPage> {
       debugPrint('Error fetching custom orders: $e');
       if (mounted) {
         if (_showCustomOrders) setState(() => _isLoading = false);
-        // Added a snackbar just in case an error happens so it won't be silent anymore!
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Load Error: $e')));
       }
     }
@@ -161,7 +160,6 @@ class _AdminOrdersPageState extends State<AdminOrdersPage> {
     
     final oldStatus = _customOrders[index]['status'];
     
-    // Optimistic Update
     setState(() {
       _customOrders[index]['status'] = newStatus;
     });
@@ -273,7 +271,7 @@ class _AdminOrdersPageState extends State<AdminOrdersPage> {
               ),
             ),
 
-            // --- STANDARD FILTERS (Only visible if viewing Store Orders) ---
+            // --- STANDARD FILTERS ---
             if (!_showCustomOrders)
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,

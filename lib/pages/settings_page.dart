@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'; // --- ADDED: For input formatters ---
 import 'package:supabase_flutter/supabase_flutter.dart'; 
 import 'address_page.dart';
-import 'login_page.dart'; // --- ADDED: Import for login page routing ---
+import 'login_page.dart';
 
 // ============================================================================
 // 12. SETTINGS PAGE SECTION
@@ -10,7 +11,6 @@ import 'login_page.dart'; // --- ADDED: Import for login page routing ---
 class SettingsPage extends StatelessWidget {
   const SettingsPage({super.key});
 
-// --- NEW: Log Out Function with Confirmation Dialog ---
   Future<void> _handleLogout(BuildContext context) async {
     final bool confirm = await showDialog(
       context: context,
@@ -35,11 +35,9 @@ class SettingsPage extends StatelessWidget {
     if (!confirm) return;
 
     try {
-      // Tell Supabase to end the active session
       await Supabase.instance.client.auth.signOut();
       
       if (context.mounted) {
-        // --- FIXED: rootNavigator: true forces the app to destroy the Bottom Navigation Bar ---
         Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
           MaterialPageRoute(builder: (context) => const LoginPage()),
           (route) => false, 
@@ -53,7 +51,7 @@ class SettingsPage extends StatelessWidget {
       }
     }
   }
-  
+
   @override
   Widget build(BuildContext context) {
     const darkThemeColor = Color(0xFF2D3238); 
@@ -93,7 +91,6 @@ class SettingsPage extends StatelessWidget {
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
-            // 1. Edit Profile Details Button
             Container(
               padding: const EdgeInsets.all(16.0),
               decoration: cardDecoration,
@@ -118,12 +115,11 @@ class SettingsPage extends StatelessWidget {
             ),
             const SizedBox(height: 16),
 
-            // 2. NEW: Log Out Button
             Container(
               padding: const EdgeInsets.all(16.0),
               decoration: cardDecoration,
               child: GestureDetector(
-                onTap: () => _handleLogout(context), // Triggers the logout confirmation
+                onTap: () => _handleLogout(context), 
                 child: const Row(
                   children: [
                     Icon(Icons.logout, size: 28, color: Colors.redAccent), 
@@ -158,7 +154,6 @@ class EditingProfilePage extends StatefulWidget {
 }
 
 class _EditingProfilePageState extends State<EditingProfilePage> {
-  // --- SUPABASE & DATA STATE ---
   final _supabase = Supabase.instance.client;
   bool _isLoading = true;
   bool _isSaving = false;
@@ -167,7 +162,6 @@ class _EditingProfilePageState extends State<EditingProfilePage> {
   bool _isPasswordExpanded = false; 
   bool _isPasswordVisible = false; 
   
-  // Controllers for our text fields
   final TextEditingController _firstNameController = TextEditingController();
   final TextEditingController _lastNameController = TextEditingController();
   final TextEditingController _contactNumberController = TextEditingController();
@@ -182,7 +176,6 @@ class _EditingProfilePageState extends State<EditingProfilePage> {
     _fetchUserData();
   }
 
-  // --- FETCH USER DATA FROM SUPABASE ---
   Future<void> _fetchUserData() async {
     final user = _supabase.auth.currentUser;
     if (user == null) {
@@ -191,22 +184,26 @@ class _EditingProfilePageState extends State<EditingProfilePage> {
     }
 
     try {
-      // 1. Fetch Profile Data
       final profile = await _supabase.from('profiles').select().eq('id', user.id).single();
-      
-      // 2. Fetch their Default Address
       final addressRes = await _supabase.from('user_addresses').select('address_string').eq('user_id', user.id).eq('is_default', true).maybeSingle();
 
       if (mounted) {
         setState(() {
-          // Split full name into first and last
           final fullName = profile['full_name'] as String? ?? '';
           final nameParts = fullName.split(' ');
           _firstNameController.text = nameParts.isNotEmpty ? nameParts.first : '';
           _lastNameController.text = nameParts.length > 1 ? nameParts.sublist(1).join(' ') : '';
           
-          _contactNumberController.text = profile['contact_number'] ?? '';
           _emailController.text = profile['email'] ?? user.email ?? '';
+
+          // --- FIXED: Strip the +63 from the database so it fits cleanly in the 10-digit UI box ---
+          String fetchedPhone = profile['contact_number'] ?? '';
+          if (fetchedPhone.startsWith('+63')) {
+            fetchedPhone = fetchedPhone.replaceFirst('+63', '').trim();
+          } else if (fetchedPhone.startsWith('0')) {
+            fetchedPhone = fetchedPhone.replaceFirst('0', '').trim();
+          }
+          _contactNumberController.text = fetchedPhone;
 
           _currentAddress = addressRes != null ? addressRes['address_string'] : 'No default address set';
           _isLoading = false;
@@ -218,7 +215,6 @@ class _EditingProfilePageState extends State<EditingProfilePage> {
     }
   }
 
-  // --- SAVE UPDATED DATA TO SUPABASE ---
   Future<void> _saveChanges() async {
     final user = _supabase.auth.currentUser;
     if (user == null) return;
@@ -226,16 +222,17 @@ class _EditingProfilePageState extends State<EditingProfilePage> {
     setState(() => _isSaving = true);
 
     try {
-      // 1. Combine names and update public.profiles table
       final fullName = '${_firstNameController.text.trim()} ${_lastNameController.text.trim()}';
       
+      // --- FIXED: Stitch the +63 back together before sending to Supabase ---
+      final completePhone = '+63${_contactNumberController.text.trim()}';
+
       await _supabase.from('profiles').update({
         'full_name': fullName.trim(),
-        'contact_number': _contactNumberController.text.trim(),
+        'contact_number': completePhone,
         'email': _emailController.text.trim(), 
       }).eq('id', user.id);
 
-      // 2. Update Password (if they typed a new one)
       if (_newPasswordController.text.isNotEmpty) {
         await _supabase.auth.updateUser(UserAttributes(
           password: _newPasswordController.text,
@@ -274,7 +271,8 @@ class _EditingProfilePageState extends State<EditingProfilePage> {
     );
   }
 
-  Widget _buildDetailInputField(String label, String hintText, TextEditingController controller) {
+  // --- FIXED: Updated the builder to handle the isPhone condition ---
+  Widget _buildDetailInputField(String label, String hintText, TextEditingController controller, {bool isPhone = false}) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 20.0),
       child: Column(
@@ -286,8 +284,23 @@ class _EditingProfilePageState extends State<EditingProfilePage> {
             decoration: _getCardDecoration(), 
             child: TextField(
               controller: controller,
+              keyboardType: isPhone ? TextInputType.phone : TextInputType.text,
+              inputFormatters: isPhone
+                  ? [
+                      FilteringTextInputFormatter.digitsOnly,
+                      LengthLimitingTextInputFormatter(10), // Exactly 10 digits
+                    ]
+                  : null,
               style: TextStyle(color: darkThemeColor),
-              decoration: InputDecoration(hintText: hintText, border: InputBorder.none, contentPadding: const EdgeInsets.all(16.0)),
+              decoration: InputDecoration(
+                prefixText: isPhone ? '+63 ' : null, // The locked prefix
+                prefixStyle: isPhone 
+                    ? TextStyle(color: darkThemeColor, fontSize: 16, fontWeight: FontWeight.bold) 
+                    : null,
+                hintText: hintText, 
+                border: InputBorder.none, 
+                contentPadding: const EdgeInsets.all(16.0)
+              ),
             ),
           ),
         ],
@@ -349,7 +362,10 @@ class _EditingProfilePageState extends State<EditingProfilePage> {
                     children: [
                       _buildDetailInputField('First Name', 'Enter first name', _firstNameController),
                       _buildDetailInputField('Last Name', 'Enter last name', _lastNameController),
-                      _buildDetailInputField('Contact Number', 'e.g. +639123456789', _contactNumberController),
+                      
+                      // --- FIXED: Added the isPhone flag to lock the prefix ---
+                      _buildDetailInputField('Contact Number', '912 345 6789', _contactNumberController, isPhone: true),
+                      
                       _buildDetailInputField('Email', 'your.email@example.com', _emailController),
                     ],
                   ),
