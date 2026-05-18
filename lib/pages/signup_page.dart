@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'; // --- ADDED: For input formatters ---
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:location/location.dart' as loc;
 import 'package:permission_handler/permission_handler.dart';
-import '../main.dart'; // adjust if your main screen is elsewhere
+import '../main.dart'; 
 
 // ------------------- Location Picker Map -------------------
 class LocationPickerMap extends StatefulWidget {
@@ -18,7 +19,7 @@ class LocationPickerMap extends StatefulWidget {
 class _LocationPickerMapState extends State<LocationPickerMap> {
   late MapController _mapController;
   LatLng? _pickedPoint;
-  LatLng _currentCenter = const LatLng(40.7128, -74.0060); // default
+  LatLng _currentCenter = const LatLng(40.7128, -74.0060); 
 
   @override
   void initState() {
@@ -97,7 +98,7 @@ class _LocationPickerMapState extends State<LocationPickerMap> {
         children: [
           TileLayer(
             urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-            userAgentPackageName: 'com.example.tonto_ecommerce', // replace with your actual package name
+            userAgentPackageName: 'com.example.tonto_ecommerce', 
           ),
           if (_pickedPoint != null)
             MarkerLayer(
@@ -171,7 +172,6 @@ class _SignUpPageState extends State<SignUpPage> {
     }
   }
 
-  /// Geocode typed address to coordinates
   Future<void> _geocodeAddressAndSetLocation(String address) async {
     if (address.trim().isEmpty) return;
     try {
@@ -197,7 +197,6 @@ class _SignUpPageState extends State<SignUpPage> {
     }
   }
 
-  /// Get current GPS location and fill address field
   Future<void> _getCurrentLocation() async {
     PermissionStatus status = await Permission.location.request();
     if (!status.isGranted) {
@@ -230,7 +229,6 @@ class _SignUpPageState extends State<SignUpPage> {
     }
   }
 
-  /// Reverse geocode coordinates to human-readable address
   Future<void> _updateAddressFromCoordinates(double lat, double lng) async {
     try {
       List<Placemark> placemarks = await placemarkFromCoordinates(lat, lng);
@@ -253,7 +251,6 @@ class _SignUpPageState extends State<SignUpPage> {
     }
   }
 
-  /// Open the full-screen map picker
   Future<void> _openMapPicker() async {
     final LatLng? result = await Navigator.push(
       context,
@@ -271,96 +268,82 @@ class _SignUpPageState extends State<SignUpPage> {
     }
   }
 
-  // ------------------- Sign Up with auto sign-in (Option 2) -------------------
   Future<void> _signUp() async {
-  // Validate location
-  if (!_locationPicked && _addressController.text.trim().isNotEmpty) {
-    await _geocodeAddressAndSetLocation(_addressController.text);
+    if (!_locationPicked && _addressController.text.trim().isNotEmpty) {
+      await _geocodeAddressAndSetLocation(_addressController.text);
+      if (_selectedLocation == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please verify your address using the search button or pick on map.')),
+        );
+        return;
+      }
+    }
+
     if (_selectedLocation == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please verify your address using the search button or pick on map.')),
+        const SnackBar(content: Text('Please provide your location (use current location, map picker, or search address).')),
       );
       return;
     }
-  }
 
-  if (_selectedLocation == null) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Please provide your location (use current location, map picker, or search address).')),
-    );
-    return;
-  }
-
-  setState(() => _isLoading = true);
-  try {
-    // 1. Sign up
-    final AuthResponse res = await _supabase.auth.signUp(
-      email: _emailController.text.trim(),
-      password: _passwordController.text.trim(),
-      data: {
-        'full_name': '${_firstNameController.text.trim()} ${_lastNameController.text.trim()}',
-      },
-    );
-
-    final user = res.user;
-    if (user == null) throw Exception('User creation failed - user object is null.');
-
-    print('✅ Auth user created with ID: ${user.id}');
-
-    // 2. Auto sign in (in case email confirmation is ON)
-    if (_supabase.auth.currentSession == null) {
-      print('🟡 No session yet, signing in...');
-      await _supabase.auth.signInWithPassword(
+    setState(() => _isLoading = true);
+    try {
+      final AuthResponse res = await _supabase.auth.signUp(
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
+        data: {
+          'full_name': '${_firstNameController.text.trim()} ${_lastNameController.text.trim()}',
+        },
       );
-      print('✅ Signed in successfully');
-    }
 
-    // 3. Upsert into profiles (insert or update if exists)
-    final fullName = '${_firstNameController.text.trim()} ${_lastNameController.text.trim()}';
-    print('🟡 Upserting into profiles...');
-    await _supabase.from('profiles').upsert({
-      'id': user.id,
-      'email': _emailController.text.trim(),
-      'full_name': fullName,
-      'contact_number': _phoneController.text.trim(),
-      'date_of_birth': _dobController.text.trim(),
-    });
-    print('✅ Upserted into profiles.');
+      final user = res.user;
+      if (user == null) throw Exception('User creation failed - user object is null.');
 
-    // 4. Insert into user_addresses (always a new address)
-    print('🟡 Inserting into user_addresses...');
-    await _supabase.from('user_addresses').insert({
-      'user_id': user.id,
-      'address_string': _addressController.text.trim(),
-      'is_default': true,
-      'latitude': _selectedLocation!.latitude,
-      'longitude': _selectedLocation!.longitude,
-    });
-    print('✅ Inserted into user_addresses.');
+      if (_supabase.auth.currentSession == null) {
+        await _supabase.auth.signInWithPassword(
+          email: _emailController.text.trim(),
+          password: _passwordController.text.trim(),
+        );
+      }
 
-    // 5. Navigate to home
-    if (mounted) {
-      Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(builder: (context) => const MainScreen()),
-        (route) => false,
+      final fullName = '${_firstNameController.text.trim()} ${_lastNameController.text.trim()}';
+      
+      // --- FIXED: Stitch +63 into the contact number ---
+      final completePhone = '+63${_phoneController.text.trim()}';
+
+      await _supabase.from('profiles').upsert({
+        'id': user.id,
+        'email': _emailController.text.trim(),
+        'full_name': fullName,
+        'contact_number': completePhone, 
+        'date_of_birth': _dobController.text.trim(),
+      });
+
+      await _supabase.from('user_addresses').insert({
+        'user_id': user.id,
+        'address_string': _addressController.text.trim(),
+        'is_default': true,
+        'latitude': _selectedLocation!.latitude,
+        'longitude': _selectedLocation!.longitude,
+      });
+
+      if (mounted) {
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (context) => const MainScreen()),
+          (route) => false,
+        );
+      }
+    } on AuthException catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+    } catch (e, stacktrace) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Sign up failed. Please check the console.')),
       );
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
-  } on AuthException catch (e) {
-    print('❌ AuthException: ${e.message}');
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
-  } catch (e, stacktrace) {
-    print('❌ Unexpected error: $e');
-    print(stacktrace);
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Sign up failed. Please check the console.')),
-    );
-  } finally {
-    if (mounted) setState(() => _isLoading = false);
   }
-}
 
   @override
   void dispose() {
@@ -374,7 +357,6 @@ class _SignUpPageState extends State<SignUpPage> {
     super.dispose();
   }
 
-  // ------------------- UI Build (Original) -------------------
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -382,7 +364,6 @@ class _SignUpPageState extends State<SignUpPage> {
       body: SafeArea(
         child: Column(
           children: [
-            // Back button and title
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               child: Row(
@@ -407,7 +388,6 @@ class _SignUpPageState extends State<SignUpPage> {
                 padding: const EdgeInsets.fromLTRB(32, 8, 32, 32),
                 child: Column(
                   children: [
-                    // ---- PERSONAL INFORMATION ----
                     _sectionTitle('Personal Information'),
                     const SizedBox(height: 12),
                     _buildField('First Name', _firstNameController),
@@ -415,7 +395,6 @@ class _SignUpPageState extends State<SignUpPage> {
                     _buildField('Last Name', _lastNameController),
                     const SizedBox(height: 14),
 
-                    // Address field with search icon
                     TextField(
                       controller: _addressController,
                       decoration: InputDecoration(
@@ -444,7 +423,6 @@ class _SignUpPageState extends State<SignUpPage> {
                     ),
                     const SizedBox(height: 12),
 
-                    // Location action buttons
                     Row(
                       children: [
                         Expanded(
@@ -495,19 +473,20 @@ class _SignUpPageState extends State<SignUpPage> {
                     ),
                     const SizedBox(height: 30),
 
-                    // ---- CONTACT INFORMATION ----
                     _sectionTitle('Contact Information'),
                     const SizedBox(height: 12),
-                    _buildField('Phone Number', _phoneController,
-                        keyboardType: TextInputType.phone),
+                    
+                    // --- FIXED: Uses the isPhone flag to lock the +63 prefix ---
+                    _buildField('912 345 6789', _phoneController,
+                        keyboardType: TextInputType.phone, isPhone: true),
                     const SizedBox(height: 14),
+                    
                     _buildField('Email Address', _emailController,
                         keyboardType: TextInputType.emailAddress),
                     const SizedBox(height: 14),
                     _buildField('Password', _passwordController, obscure: true),
                     const SizedBox(height: 40),
 
-                    // ---- SIGN UP BUTTON ----
                     SizedBox(
                       width: double.infinity,
                       height: 52,
@@ -541,7 +520,6 @@ class _SignUpPageState extends State<SignUpPage> {
                     ),
                     const SizedBox(height: 30),
 
-                    // ---- OR SIGN UP WITH SECTION ----
                     const Row(
                       children: [
                         Expanded(child: Divider(color: Color(0xFFCCCCCC))),
@@ -588,6 +566,7 @@ class _SignUpPageState extends State<SignUpPage> {
     );
   }
 
+  // --- FIXED: Updated the builder to handle the isPhone condition ---
   Widget _buildField(
     String hint,
     TextEditingController controller, {
@@ -595,6 +574,7 @@ class _SignUpPageState extends State<SignUpPage> {
     bool obscure = false,
     bool readOnly = false,
     VoidCallback? onTap,
+    bool isPhone = false, // <-- Added parameter
   }) {
     return TextField(
       controller: controller,
@@ -602,7 +582,17 @@ class _SignUpPageState extends State<SignUpPage> {
       keyboardType: keyboardType,
       readOnly: readOnly,
       onTap: onTap,
+      inputFormatters: isPhone
+          ? [
+              FilteringTextInputFormatter.digitsOnly,
+              LengthLimitingTextInputFormatter(10), // Limit to exactly 10 digits
+            ]
+          : null,
       decoration: InputDecoration(
+        prefixText: isPhone ? '+63 ' : null, // The locked prefix
+        prefixStyle: isPhone 
+            ? const TextStyle(color: Colors.black87, fontSize: 16, fontWeight: FontWeight.bold) 
+            : null,
         hintText: hint,
         hintStyle: const TextStyle(color: Colors.grey),
         filled: true,

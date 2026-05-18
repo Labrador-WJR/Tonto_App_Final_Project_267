@@ -37,6 +37,8 @@ dependencies:
   geocoding: ^2.1.1           # forward & reverse geocoding
   location: ^5.0.0            # GPS current location
   permission_handler: ^11.0.0 # easy permission handling
+  audioplayers: ^6.6.0
+  image_picker: ^1.2.2
   
 dev_dependencies:
   flutter_test:
@@ -62,6 +64,7 @@ flutter:
   assets:
     - assets/icons/
     - assets/images/
+    - assets/sounds/
   # To add assets to your application, add an assets section, like this:
   # assets:
   #   - images/a_dot_burr.jpeg

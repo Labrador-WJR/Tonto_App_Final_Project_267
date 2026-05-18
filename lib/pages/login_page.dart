@@ -19,7 +19,7 @@ class _LoginPageState extends State<LoginPage> {
   final _supabase = Supabase.instance.client;
 
   // ---------- Hardcoded admin credentials ----------
-  static const String _adminEmail = 'admin@admin.com';
+  static const String _adminEmail = 'admin@tonto.com';
   static const String _adminPassword = 'admin123';
 
   Future<void> _signIn() async {

@@ -57,6 +57,37 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
     if (mounted) setState(() => _loading = false);
   }
 
+  // --- NEW: Function to update the status in the database ---
+  Future<void> _updateOrderStatus(String newStatus) async {
+    final oldStatus = _order!['status'];
+    
+    // Optimistic UI update (change it instantly on screen)
+    setState(() {
+      _order!['status'] = newStatus;
+    });
+
+    try {
+      await _supabase.from('orders').update({'status': newStatus}).eq('id', widget.orderId);
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Order #${widget.orderId} marked as $newStatus'), backgroundColor: Colors.green),
+        );
+      }
+    } catch (e) {
+      debugPrint('Update status error: $e');
+      // If the database fails, revert back to the old status
+      if (mounted) {
+        setState(() {
+          _order!['status'] = oldStatus;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to update status. Please try again.'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -80,6 +111,7 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
                         children: [
                           Text('Order #${_order!['id']}',
                               style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900)),
+                          // UPDATED: Now an interactive dropdown!
                           _buildStatusBadge(_order!['status'] ?? 'Pending'),
                         ],
                       ),
@@ -105,7 +137,6 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
                       const Text('Items', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
                       const SizedBox(height: 10),
 
-                      // Items list – fixed syntax
                       if (_items.isEmpty)
                         const Text('No items found')
                       else
@@ -179,27 +210,66 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
     );
   }
 
+  // --- UPDATED: Turned the static badge into a functional Dropdown Button ---
   Widget _buildStatusBadge(String status) {
     Color labelColor;
     Color bgColor;
+    
     switch (status) {
       case 'Pending':
         labelColor = const Color(0xFFA02B2B);
         bgColor = const Color(0xFFE5B5B5);
         break;
+      case 'Processing':
+        labelColor = const Color(0xFF8A6D2B);
+        bgColor = const Color(0xFFE5DEB5);
+        break;
       case 'Shipped':
         labelColor = const Color(0xFF2B5B84);
         bgColor = const Color(0xFFB5D1E5);
         break;
+      case 'Cancelled':
+        labelColor = Colors.white;
+        bgColor = Colors.black54;
+        break;
+      case 'Delivered':
       default:
         labelColor = const Color(0xFF2B844A);
         bgColor = const Color(0xFFB5E5C4);
     }
+
+    // List of standard statuses an admin can select
+    List<String> validStatuses = ['Pending', 'Shipping', 'Delivered', 'Completed'];
+    
+    // Safety check just in case the database has a weird custom status saved
+    if (!validStatuses.contains(status)) {
+      validStatuses.add(status);
+    }
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      height: 36,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(color: bgColor, borderRadius: BorderRadius.circular(6)),
-      child: Text(status,
-          style: TextStyle(color: labelColor, fontWeight: FontWeight.bold, fontSize: 13)),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          value: status,
+          dropdownColor: bgColor,
+          icon: Icon(Icons.arrow_drop_down, color: labelColor),
+          isDense: true,
+          style: TextStyle(color: labelColor, fontWeight: FontWeight.bold, fontSize: 14),
+          items: validStatuses.map((String s) {
+            return DropdownMenuItem<String>(
+              value: s,
+              child: Text(s, style: TextStyle(color: labelColor, fontWeight: FontWeight.bold)),
+            );
+          }).toList(),
+          onChanged: (String? newStatus) {
+            if (newStatus != null && newStatus != status) {
+              _updateOrderStatus(newStatus);
+            }
+          },
+        ),
+      ),
     );
   }
 }

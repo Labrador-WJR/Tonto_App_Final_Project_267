@@ -37,7 +37,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
   int _selectedTabIndex = 0;
 
-  final List<String> _tabs = ['Pending', 'Shipping', 'Deliver', 'Completed'];
+  final List<String> _tabs = ['Pending', 'Shipping', 'Delivered', 'Completed'];
 
   final cardDecoration = BoxDecoration(
     color: const Color(0xFFD5D5D5),
